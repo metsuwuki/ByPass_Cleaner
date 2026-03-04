@@ -1,0 +1,24 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+*/.venv/
+*/venv/
+
+# Build artifacts
+build/
+dist/
+*.spec
+
+# Runtime/user-local settings
+qt_settings.json
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
