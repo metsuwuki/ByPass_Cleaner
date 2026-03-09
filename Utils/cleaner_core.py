@@ -21,6 +21,7 @@ class CleanupOptions:
     scan_subfolders: bool
     delete_empty_dirs: bool
     skip_hidden: bool
+    use_age_filter: bool
     dry_run: bool
 
 
@@ -71,7 +72,7 @@ class CleanerEngine:
         return total, logs
 
     def _process_folder(self, folder, options):
-        threshold_time = time.time() - (options.days_limit * 86400)
+        threshold_time = time.time() - (options.days_limit * 86400) if options.use_age_filter else 0
         stats = CleanupStats()
         logs = []
 
@@ -85,7 +86,7 @@ class CleanerEngine:
 
             try:
                 file_stat = os.stat(file_path)
-                if file_stat.st_mtime > threshold_time:
+                if options.use_age_filter and file_stat.st_mtime > threshold_time:
                     continue
                 if file_stat.st_size < options.min_size_bytes:
                     continue

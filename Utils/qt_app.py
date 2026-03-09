@@ -1,5 +1,7 @@
 import os
+import csv
 import queue
+import subprocess
 import threading
 import time
 import json
@@ -52,6 +54,18 @@ class PreviewResult:
     date_min: float | None
     date_max: float | None
     top_types: list[tuple[str, int]]
+
+
+@dataclass
+class ProcessRecord:
+    name: str
+    pid: int
+    memory: str
+    marker: str
+    executable_path: str = ""
+    command_line: str = ""
+    started_at: str = ""
+    owner: str = ""
 
 
 class FolderListWidget(QListWidget):
@@ -238,7 +252,7 @@ class AnimatedBackgroundWidget(QWidget):
 
 
 class CleanerQtApp(QMainWindow):
-    SUPPORT_URL = "https://t.me/me_tsu_ki"
+    SUPPORT_URL = "https://discord.gg/xuHMjdJN6"
     LOCALES = {
         "ru": {
             "window_title": "Metsuki Cleaner • Desktop",
@@ -256,6 +270,7 @@ class CleanerQtApp(QMainWindow):
             "scan_subfolders": "Сканировать подпапки",
             "delete_empty": "Удалять пустые папки",
             "skip_hidden": "Пропускать скрытые",
+            "use_age_filter": "Фильтр по дням",
             "dry_run": "Только предпросмотр",
             "add": "Добавить",
             "folder_actions": "Действия",
@@ -276,9 +291,30 @@ class CleanerQtApp(QMainWindow):
             "preview_no_folder": "Добавьте папку для предпросмотра",
             "activity": "Активность",
             "activity_ready": "• UI готов. Добавьте папку и запустите очистку.",
+            "processes_title": "Подозрительные процессы",
+            "refresh_processes": "Обновить процессы",
+            "process_details": "Детали процесса",
+            "open_process_folder": "Открыть папку процесса",
+            "process_none": "Подозрительных процессов не найдено",
+            "process_reason_keyword": "Маркер: {keyword}",
+            "process_scan_done": "Проверка процессов: найдено {count}",
+            "process_scan_failed": "Не удалось проверить процессы: {error}",
+            "process_no_selection": "Выберите процесс из списка",
+            "process_details_title": "Детали процесса",
+            "process_folder_unavailable": "Не удалось определить путь процесса",
+            "process_open_folder_failed": "Не удалось открыть папку процесса: {error}",
+            "process_details_failed": "Не удалось получить данные процесса: {error}",
+            "process_id_label": "PID",
+            "process_name_label": "Имя",
+            "process_memory_label": "Память",
+            "process_path_label": "Путь",
+            "process_cmd_label": "Команда",
+            "process_started_label": "Запущен",
+            "process_owner_label": "Владелец",
+            "process_suspicion_label": "Причина",
             "save_log": "Сохранить лог",
             "help": "Помощь",
-            "developer_contact": "Поддержка",
+            "developer_contact": "Сервер поддержки",
             "design_settings": "Дизайн",
             "design_title": "Настройки дизайна",
             "design_theme": "Тема",
@@ -376,6 +412,7 @@ class CleanerQtApp(QMainWindow):
             "scan_subfolders": "Scan subfolders",
             "delete_empty": "Delete empty folders",
             "skip_hidden": "Skip hidden",
+            "use_age_filter": "Age filter",
             "dry_run": "Preview only",
             "add": "Add",
             "folder_actions": "Actions",
@@ -396,9 +433,30 @@ class CleanerQtApp(QMainWindow):
             "preview_no_folder": "Add a folder to preview",
             "activity": "Activity",
             "activity_ready": "• UI is ready. Add folders and start cleanup.",
+            "processes_title": "Suspicious processes",
+            "refresh_processes": "Refresh processes",
+            "process_details": "Process details",
+            "open_process_folder": "Open process folder",
+            "process_none": "No suspicious processes found",
+            "process_reason_keyword": "Marker: {keyword}",
+            "process_scan_done": "Process scan complete: found {count}",
+            "process_scan_failed": "Failed to scan processes: {error}",
+            "process_no_selection": "Select a process from the list",
+            "process_details_title": "Process details",
+            "process_folder_unavailable": "Could not resolve process path",
+            "process_open_folder_failed": "Failed to open process folder: {error}",
+            "process_details_failed": "Failed to load process details: {error}",
+            "process_id_label": "PID",
+            "process_name_label": "Name",
+            "process_memory_label": "Memory",
+            "process_path_label": "Path",
+            "process_cmd_label": "Command",
+            "process_started_label": "Started",
+            "process_owner_label": "Owner",
+            "process_suspicion_label": "Reason",
             "save_log": "Save log",
             "help": "Help",
-            "developer_contact": "Support",
+            "developer_contact": "Support Server",
             "design_settings": "Design",
             "design_title": "Design Settings",
             "design_theme": "Theme",
@@ -496,6 +554,7 @@ class CleanerQtApp(QMainWindow):
             "scan_subfolders": "Сканувати підпапки",
             "delete_empty": "Видаляти порожні папки",
             "skip_hidden": "Пропускати приховані",
+            "use_age_filter": "Фільтр за днями",
             "dry_run": "Лише попередній перегляд",
             "add": "Додати",
             "folder_actions": "Дії",
@@ -516,9 +575,30 @@ class CleanerQtApp(QMainWindow):
             "preview_no_folder": "Додайте папку для попереднього перегляду",
             "activity": "Активність",
             "activity_ready": "• UI готовий. Додайте папку і запустіть очищення.",
+            "processes_title": "Підозрілі процеси",
+            "refresh_processes": "Оновити процеси",
+            "process_details": "Деталі процесу",
+            "open_process_folder": "Відкрити папку процесу",
+            "process_none": "Підозрілих процесів не знайдено",
+            "process_reason_keyword": "Маркер: {keyword}",
+            "process_scan_done": "Перевірка процесів: знайдено {count}",
+            "process_scan_failed": "Не вдалося перевірити процеси: {error}",
+            "process_no_selection": "Виберіть процес зі списку",
+            "process_details_title": "Деталі процесу",
+            "process_folder_unavailable": "Не вдалося визначити шлях процесу",
+            "process_open_folder_failed": "Не вдалося відкрити папку процесу: {error}",
+            "process_details_failed": "Не вдалося отримати дані процесу: {error}",
+            "process_id_label": "PID",
+            "process_name_label": "Ім'я",
+            "process_memory_label": "Пам'ять",
+            "process_path_label": "Шлях",
+            "process_cmd_label": "Команда",
+            "process_started_label": "Запущено",
+            "process_owner_label": "Власник",
+            "process_suspicion_label": "Причина",
             "save_log": "Зберегти лог",
             "help": "Допомога",
-            "developer_contact": "Підтримка",
+            "developer_contact": "Сервер підтримки",
             "design_settings": "Дизайн",
             "design_title": "Налаштування дизайну",
             "design_theme": "Тема",
@@ -616,6 +696,7 @@ class CleanerQtApp(QMainWindow):
             "scan_subfolders": "Unterordner scannen",
             "delete_empty": "Leere Ordner löschen",
             "skip_hidden": "Versteckte überspringen",
+            "use_age_filter": "Altersfilter",
             "dry_run": "Nur Vorschau",
             "add": "Hinzufügen",
             "folder_actions": "Aktionen",
@@ -636,9 +717,30 @@ class CleanerQtApp(QMainWindow):
             "preview_no_folder": "Fügen Sie einen Ordner für die Vorschau hinzu",
             "activity": "Aktivität",
             "activity_ready": "• UI ist bereit. Fügen Sie Ordner hinzu und starten Sie die Bereinigung.",
+            "processes_title": "Verdächtige Prozesse",
+            "refresh_processes": "Prozesse aktualisieren",
+            "process_details": "Prozessdetails",
+            "open_process_folder": "Prozessordner öffnen",
+            "process_none": "Keine verdächtigen Prozesse gefunden",
+            "process_reason_keyword": "Marker: {keyword}",
+            "process_scan_done": "Prozessscan abgeschlossen: {count} gefunden",
+            "process_scan_failed": "Prozessscan fehlgeschlagen: {error}",
+            "process_no_selection": "Wählen Sie einen Prozess aus der Liste",
+            "process_details_title": "Prozessdetails",
+            "process_folder_unavailable": "Prozesspfad konnte nicht ermittelt werden",
+            "process_open_folder_failed": "Prozessordner konnte nicht geöffnet werden: {error}",
+            "process_details_failed": "Prozessdaten konnten nicht geladen werden: {error}",
+            "process_id_label": "PID",
+            "process_name_label": "Name",
+            "process_memory_label": "Speicher",
+            "process_path_label": "Pfad",
+            "process_cmd_label": "Befehl",
+            "process_started_label": "Gestartet",
+            "process_owner_label": "Besitzer",
+            "process_suspicion_label": "Grund",
             "save_log": "Log speichern",
             "help": "Hilfe",
-            "developer_contact": "Support",
+            "developer_contact": "Support-Server",
             "design_settings": "Design",
             "design_title": "Design-Einstellungen",
             "design_theme": "Thema",
@@ -862,6 +964,24 @@ class CleanerQtApp(QMainWindow):
         "Config": {"ini", "cfg", "conf", "yaml", "yml", "json", "xml", "toml"},
     }
 
+    SUSPICIOUS_PROCESS_MARKERS = (
+        "bypass",
+        "inject",
+        "cheat",
+        "stealer",
+        "grabber",
+        "miner",
+        "keylog",
+        "crack",
+        "patcher",
+        "loader",
+        "spoof",
+        "rat",
+        "trojan",
+        "hack",
+        "exploit",
+    )
+
     def __init__(self):
         super().__init__()
         self.base_path = os.path.dirname(os.path.abspath(__file__))
@@ -884,6 +1004,7 @@ class CleanerQtApp(QMainWindow):
         self._preview_loading_base_text = ""
         self.log_messages = []
         self.preview_lines = []
+        self.suspicious_processes: list[ProcessRecord] = []
 
         self._set_window_branding()
 
@@ -895,6 +1016,7 @@ class CleanerQtApp(QMainWindow):
         self.queue_timer = QTimer(self)
         self.queue_timer.timeout.connect(self._poll_queues)
         self.queue_timer.start(130)
+        QTimer.singleShot(280, self.refresh_suspicious_processes)
 
     def _set_window_branding(self):
         icon_candidates = [
@@ -1064,10 +1186,13 @@ class CleanerQtApp(QMainWindow):
         self.delete_empty = QCheckBox("Удалять пустые папки")
         self.skip_hidden = QCheckBox("Пропускать скрытые")
         self.skip_hidden.setChecked(True)
+        self.use_age_filter = QCheckBox("Фильтр по дням")
+        self.use_age_filter.setChecked(True)
         self.dry_run = QCheckBox("Только предпросмотр")
         left_layout.addWidget(self.scan_subfolders)
         left_layout.addWidget(self.delete_empty)
         left_layout.addWidget(self.skip_hidden)
+        left_layout.addWidget(self.use_age_filter)
         left_layout.addWidget(self.dry_run)
 
         secondary_row = QHBoxLayout()
@@ -1125,6 +1250,28 @@ class CleanerQtApp(QMainWindow):
         self.preview_summary.setObjectName("Muted")
         right_layout.addWidget(self.preview_summary)
 
+        self.processes_title = QLabel("Подозрительные процессы")
+        self.processes_title.setObjectName("Section")
+        right_layout.addWidget(self.processes_title)
+
+        self.processes_list = QListWidget()
+        self.processes_list.setSelectionMode(QListWidget.SelectionMode.SingleSelection)
+        self.processes_list.setMaximumHeight(146)
+        right_layout.addWidget(self.processes_list)
+
+        process_row = QHBoxLayout()
+        process_row.setSpacing(grid)
+        self.refresh_processes_btn = QPushButton("Обновить процессы")
+        self.refresh_processes_btn.setObjectName("Quiet")
+        self.process_details_btn = QPushButton("Детали процесса")
+        self.process_details_btn.setObjectName("Quiet")
+        self.open_process_folder_btn = QPushButton("Открыть папку процесса")
+        self.open_process_folder_btn.setObjectName("Quiet")
+        process_row.addWidget(self.refresh_processes_btn)
+        process_row.addWidget(self.process_details_btn)
+        process_row.addWidget(self.open_process_folder_btn)
+        right_layout.addLayout(process_row)
+
         self.logs_title = QLabel("Активность")
         self.logs_title.setObjectName("Section")
         right_layout.addWidget(self.logs_title)
@@ -1174,6 +1321,9 @@ class CleanerQtApp(QMainWindow):
         self.preset_clear_btn.clicked.connect(lambda: self._set_extension_preset("clear"))
         self.preview_btn.clicked.connect(self.refresh_preview)
         self.preview_details_btn.clicked.connect(self.show_preview_details)
+        self.refresh_processes_btn.clicked.connect(self.refresh_suspicious_processes)
+        self.process_details_btn.clicked.connect(self.show_selected_process_details)
+        self.open_process_folder_btn.clicked.connect(self.open_selected_process_folder)
         self.run_btn.clicked.connect(self.start_cleanup)
         self.stop_btn.clicked.connect(self.stop_cleanup)
         self.save_log_btn.clicked.connect(self.save_log)
@@ -1200,6 +1350,9 @@ class CleanerQtApp(QMainWindow):
         self.stop_btn.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_MediaStop))
         self.preview_btn.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_BrowserReload))
         self.preview_details_btn.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_FileDialogDetailedView))
+        self.refresh_processes_btn.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_BrowserReload))
+        self.process_details_btn.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_MessageBoxInformation))
+        self.open_process_folder_btn.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_DirOpenIcon))
         self.add_folder_btn.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_FileDialogNewFolder))
         self.folder_actions_btn.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_TitleBarUnshadeButton))
         self.save_log_btn.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton))
@@ -1297,6 +1450,7 @@ class CleanerQtApp(QMainWindow):
         self.scan_subfolders.setText(self.tr("scan_subfolders"))
         self.delete_empty.setText(self.tr("delete_empty"))
         self.skip_hidden.setText(self.tr("skip_hidden"))
+        self.use_age_filter.setText(self.tr("use_age_filter"))
         self.dry_run.setText(self.tr("dry_run"))
         self.run_btn.setText(self.tr("run"))
         self.stop_btn.setText(self.tr("stop"))
@@ -1313,6 +1467,10 @@ class CleanerQtApp(QMainWindow):
         self.preview_title.setText(self.tr("preview_summary"))
         if not self.preview_lines:
             self.preview_summary.setText(self.tr("preview_no_folder"))
+        self.processes_title.setText(self.tr("processes_title"))
+        self.refresh_processes_btn.setText(self.tr("refresh_processes"))
+        self.process_details_btn.setText(self.tr("process_details"))
+        self.open_process_folder_btn.setText(self.tr("open_process_folder"))
         self.logs_title.setText(self.tr("activity"))
         self.save_log_btn.setText(self.tr("save_log"))
         self.help_btn.setText(self.tr("help"))
@@ -1320,6 +1478,7 @@ class CleanerQtApp(QMainWindow):
         self.dev_contact_btn.setText(self.tr("developer_contact"))
         self.folders_list.setToolTip(self.tr("tip_drop"))
         self._apply_button_icons()
+        self._render_suspicious_processes()
 
         ready_variants = {locale["activity_ready"] for locale in self.LOCALES.values()}
         current_activity = self.activity.toPlainText().strip()
@@ -1362,43 +1521,6 @@ class CleanerQtApp(QMainWindow):
         layout = QVBoxLayout(dialog)
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(12)
-
-        dialog.setStyleSheet(
-            """
-            QDialog {
-                background: #120A22;
-            }
-            QLabel#WelcomeTitle {
-                color: #F5EEFF;
-                font-size: 20px;
-                font-weight: 700;
-            }
-            QLabel#WelcomeMuted {
-                color: #B7A8D8;
-            }
-            QFrame#ThemePreview {
-                border: 1px solid #46306E;
-                border-radius: 12px;
-                background: #1A1031;
-            }
-            QPushButton#ThemeCard {
-                border: 1px solid #5D3EE8;
-                border-radius: 10px;
-                background: #1B1036;
-                color: #F3EEFF;
-                min-height: 42px;
-                font-weight: 600;
-            }
-            QPushButton#ThemeCard:hover {
-                background: #28174A;
-                border: 1px solid #7A5CFF;
-            }
-            QPushButton#ThemeCard[active="true"] {
-                border: 2px solid #EC4BB8;
-                background: #2D1650;
-            }
-            """
-        )
 
         logo_path = os.path.join(self.base_path, "logo.png")
         logo_label = QLabel()
@@ -1458,6 +1580,76 @@ class CleanerQtApp(QMainWindow):
 
         selected_theme = self.current_theme_key if self.current_theme_key in self.THEMES else "neon"
 
+        def apply_welcome_theme(theme_key):
+            palette = self.THEMES.get(theme_key, self.THEMES["neon"])
+            dialog.setStyleSheet(
+                f"""
+                QDialog {{
+                    background: {palette['bg']};
+                    border: 1px solid {palette['panel_border']};
+                    border-radius: 14px;
+                }}
+                QLabel {{
+                    color: {palette['text']};
+                    background: transparent;
+                }}
+                QLabel#WelcomeTitle {{
+                    color: {palette['text']};
+                    font-size: 20px;
+                    font-weight: 700;
+                }}
+                QLabel#WelcomeMuted {{
+                    color: {palette['muted']};
+                }}
+                QFrame#ThemePreview {{
+                    border: 1px solid {palette['panel_border']};
+                    border-radius: 12px;
+                    background: {palette['panel_glass']};
+                }}
+                QComboBox {{
+                    background: {palette['field']};
+                    border: 1px solid {palette['field_border']};
+                    border-radius: 8px;
+                    min-height: 28px;
+                    padding: 2px 8px;
+                    color: {palette['text']};
+                }}
+                QComboBox QAbstractItemView {{
+                    background: {palette['field']};
+                    border: 1px solid {palette['field_border']};
+                    selection-background-color: {palette['selection']};
+                }}
+                QPushButton {{
+                    background: {palette['button']};
+                    border: 1px solid {palette['button_border']};
+                    border-radius: 8px;
+                    min-height: 32px;
+                    padding: 0 10px;
+                    font-weight: 600;
+                    color: {palette['text']};
+                }}
+                QPushButton:hover {{
+                    background: {palette['button_hover']};
+                    border: 1px solid {palette['accent_border']};
+                }}
+                QPushButton#ThemeCard {{
+                    min-height: 42px;
+                }}
+                QPushButton#ThemeCard[active=\"true\"] {{
+                    border: 2px solid {palette['accent_border']};
+                    background: {palette['accent']};
+                }}
+                QPushButton#Accent {{
+                    background: {palette['accent']};
+                    border: 1px solid {palette['accent_border']};
+                }}
+                QPushButton#Accent:hover {{
+                    background: {palette['accent_hover']};
+                    border: 1px solid {palette['accent_hover']};
+                }}
+                """
+            )
+
         preview_frame = QFrame()
         preview_frame.setObjectName("ThemePreview")
         preview_layout = QVBoxLayout(preview_frame)
@@ -1478,6 +1670,7 @@ class CleanerQtApp(QMainWindow):
             minimal_card.setProperty("active", "true" if theme_key == "minimal" else "false")
             matrix_card.setProperty("active", "true" if theme_key == "matrix" else "false")
             chrome_card.setProperty("active", "true" if theme_key == "chrome" else "false")
+            apply_welcome_theme(theme_key)
 
             for button in (neon_card, minimal_card, matrix_card, chrome_card):
                 button.style().unpolish(button)
@@ -2050,6 +2243,7 @@ class CleanerQtApp(QMainWindow):
             scan_subfolders=self.scan_subfolders.isChecked(),
             delete_empty_dirs=self.delete_empty.isChecked(),
             skip_hidden=self.skip_hidden.isChecked(),
+            use_age_filter=self.use_age_filter.isChecked(),
             dry_run=dry_run_value,
         )
 
@@ -2077,7 +2271,7 @@ class CleanerQtApp(QMainWindow):
         self.preview_thread.start()
 
     def _preview_worker(self, token, folders, options):
-        threshold_time = time.time() - (options.days_limit * 86400)
+        threshold_time = time.time() - (options.days_limit * 86400) if options.use_age_filter else 0
         engine = CleanerEngine(stop_event=threading.Event(), progress_callback=lambda *_: None)
 
         type_counts = {}
@@ -2098,7 +2292,7 @@ class CleanerQtApp(QMainWindow):
                 except (PermissionError, FileNotFoundError, OSError):
                     continue
 
-                if st.st_mtime > threshold_time:
+                if options.use_age_filter and st.st_mtime > threshold_time:
                     continue
                 if st.st_size < options.min_size_bytes:
                     continue
@@ -2129,6 +2323,194 @@ class CleanerQtApp(QMainWindow):
         msg.setDetailedText(text)
         msg.setIcon(QMessageBox.Icon.Information)
         msg.exec()
+
+    def refresh_suspicious_processes(self):
+        try:
+            self.suspicious_processes = self._collect_suspicious_processes()
+            self._render_suspicious_processes()
+            self._append_activity(self.tr("process_scan_done", count=len(self.suspicious_processes)))
+        except Exception as error:
+            self.suspicious_processes = []
+            self._render_suspicious_processes()
+            self._append_activity(self.tr("process_scan_failed", error=error), level="error")
+
+    def _render_suspicious_processes(self):
+        if not hasattr(self, "processes_list"):
+            return
+
+        selected_pid = None
+        selected = self.processes_list.currentItem()
+        if selected:
+            selected_record = selected.data(Qt.ItemDataRole.UserRole)
+            if isinstance(selected_record, ProcessRecord):
+                selected_pid = selected_record.pid
+
+        self.processes_list.clear()
+
+        if not self.suspicious_processes:
+            placeholder = QListWidgetItem(self.tr("process_none"))
+            placeholder.setFlags(Qt.ItemFlag.NoItemFlags)
+            self.processes_list.addItem(placeholder)
+            return
+
+        selected_row = 0
+        for row, record in enumerate(self.suspicious_processes):
+            reason_text = self.tr("process_reason_keyword", keyword=record.marker)
+            display = f"{record.name} | PID {record.pid} | {reason_text}"
+            item = QListWidgetItem(display)
+            item.setData(Qt.ItemDataRole.UserRole, record)
+            self.processes_list.addItem(item)
+            if selected_pid and selected_pid == record.pid:
+                selected_row = row
+
+        self.processes_list.setCurrentRow(selected_row)
+
+    def _selected_process_record(self):
+        item = self.processes_list.currentItem()
+        if not item:
+            return None
+        record = item.data(Qt.ItemDataRole.UserRole)
+        if isinstance(record, ProcessRecord):
+            return record
+        return None
+
+    def _collect_suspicious_processes(self):
+        command_output = self._run_system_command(["tasklist", "/fo", "csv", "/nh"])
+        records = []
+
+        for row in csv.reader(command_output.splitlines()):
+            if len(row) < 2:
+                continue
+
+            name = row[0].strip()
+            pid_raw = row[1].strip()
+            if not name:
+                continue
+
+            try:
+                pid = int(pid_raw)
+            except ValueError:
+                continue
+
+            if pid == os.getpid():
+                continue
+
+            normalized_name = name.lower()
+            if "bypass cleaner" in normalized_name or "bypass_cleaner" in normalized_name:
+                continue
+
+            marker = self._detect_suspicious_marker(name)
+            if not marker:
+                continue
+
+            memory = row[4].strip() if len(row) > 4 else "-"
+            records.append(ProcessRecord(name=name, pid=pid, memory=memory, marker=marker))
+
+        records.sort(key=lambda rec: (rec.name.lower(), rec.pid))
+        return records
+
+    @classmethod
+    def _detect_suspicious_marker(cls, process_name):
+        normalized = os.path.splitext(process_name.lower())[0]
+        for marker in cls.SUSPICIOUS_PROCESS_MARKERS:
+            if marker in normalized:
+                return marker
+        return ""
+
+    def _fill_process_runtime_details(self, record):
+        data = self._query_process_details(record.pid)
+        if not data:
+            return record
+
+        record.executable_path = str(data.get("ExecutablePath") or record.executable_path or "")
+        record.command_line = str(data.get("CommandLine") or record.command_line or "")
+        record.owner = str(data.get("Owner") or record.owner or "")
+        record.started_at = self._format_wmi_datetime(str(data.get("CreationDate") or record.started_at or ""))
+        return record
+
+    def _query_process_details(self, pid):
+        ps_script = (
+            f"$p = Get-CimInstance Win32_Process -Filter \"ProcessId = {pid}\"; "
+            "if ($null -eq $p) { return }; "
+            "$owner = ''; "
+            "try { $ownerInfo = Invoke-CimMethod -InputObject $p -MethodName GetOwner; "
+            "if ($ownerInfo.ReturnValue -eq 0) { $owner = \"$($ownerInfo.Domain)\\$($ownerInfo.User)\" } } catch {}; "
+            "$item = [ordered]@{ "
+            "Name = $p.Name; "
+            "ProcessId = $p.ProcessId; "
+            "ExecutablePath = $p.ExecutablePath; "
+            "CommandLine = $p.CommandLine; "
+            "CreationDate = $p.CreationDate; "
+            "Owner = $owner "
+            "}; "
+            "$item | ConvertTo-Json -Compress"
+        )
+        output = self._run_system_command(["powershell", "-NoProfile", "-Command", ps_script], allow_non_zero=True)
+        text = output.strip()
+        if not text:
+            return {}
+        decoded = json.loads(text)
+        if isinstance(decoded, list):
+            return decoded[0] if decoded else {}
+        return decoded if isinstance(decoded, dict) else {}
+
+    def show_selected_process_details(self):
+        record = self._selected_process_record()
+        if not record:
+            QMessageBox.information(self, self.tr("process_details_title"), self.tr("process_no_selection"))
+            return
+
+        try:
+            self._fill_process_runtime_details(record)
+        except Exception as error:
+            QMessageBox.warning(self, self.tr("process_details_title"), self.tr("process_details_failed", error=error))
+            return
+
+        summary_lines = [
+            f"{self.tr('process_name_label')}: {record.name}",
+            f"{self.tr('process_id_label')}: {record.pid}",
+            f"{self.tr('process_memory_label')}: {record.memory or '-'}",
+            f"{self.tr('process_suspicion_label')}: {self.tr('process_reason_keyword', keyword=record.marker)}",
+            f"{self.tr('process_owner_label')}: {record.owner or '-'}",
+            f"{self.tr('process_started_label')}: {record.started_at or '-'}",
+            f"{self.tr('process_path_label')}: {record.executable_path or '-'}",
+        ]
+
+        details_text = f"{self.tr('process_cmd_label')}:\n{record.command_line or '-'}"
+
+        msg = QMessageBox(self)
+        msg.setWindowTitle(self.tr("process_details_title"))
+        msg.setIcon(QMessageBox.Icon.Information)
+        msg.setText("\n".join(summary_lines))
+        msg.setDetailedText(details_text)
+        msg.exec()
+
+    def open_selected_process_folder(self):
+        record = self._selected_process_record()
+        if not record:
+            QMessageBox.information(self, self.tr("process_details_title"), self.tr("process_no_selection"))
+            return
+
+        try:
+            self._fill_process_runtime_details(record)
+        except Exception as error:
+            QMessageBox.warning(self, self.tr("process_details_title"), self.tr("process_details_failed", error=error))
+            return
+
+        executable_path = record.executable_path.strip()
+        if not executable_path:
+            QMessageBox.warning(self, self.tr("process_details_title"), self.tr("process_folder_unavailable"))
+            return
+
+        folder_path = os.path.dirname(executable_path)
+        if not folder_path or not os.path.isdir(folder_path):
+            QMessageBox.warning(self, self.tr("process_details_title"), self.tr("process_folder_unavailable"))
+            return
+
+        try:
+            os.startfile(folder_path)
+        except Exception as error:
+            QMessageBox.warning(self, self.tr("process_details_title"), self.tr("process_open_folder_failed", error=error))
 
     def start_cleanup(self):
         folders = [os.path.abspath(path) for path in self._folders()]
@@ -2304,6 +2686,7 @@ class CleanerQtApp(QMainWindow):
             self.scan_subfolders.setChecked(bool(data.get("scan_subfolders", True)))
             self.delete_empty.setChecked(bool(data.get("delete_empty", False)))
             self.skip_hidden.setChecked(bool(data.get("skip_hidden", True)))
+            self.use_age_filter.setChecked(bool(data.get("use_age_filter", True)))
             self.dry_run.setChecked(bool(data.get("dry_run", False)))
 
             theme_key = data.get("theme", "neon")
@@ -2342,6 +2725,7 @@ class CleanerQtApp(QMainWindow):
             "scan_subfolders": self.scan_subfolders.isChecked(),
             "delete_empty": self.delete_empty.isChecked(),
             "skip_hidden": self.skip_hidden.isChecked(),
+            "use_age_filter": self.use_age_filter.isChecked(),
             "dry_run": self.dry_run.isChecked(),
             "theme": self.current_theme_key,
             "language": self.current_language,
@@ -2366,6 +2750,45 @@ class CleanerQtApp(QMainWindow):
             if extension in extensions:
                 return type_name
         return "Other"
+
+    @staticmethod
+    def _decode_console_output(raw_bytes):
+        if not raw_bytes:
+            return ""
+        for encoding in ("utf-8", "cp866", "cp1251", "latin-1"):
+            try:
+                return raw_bytes.decode(encoding)
+            except UnicodeDecodeError:
+                continue
+        return raw_bytes.decode("utf-8", errors="replace")
+
+    @classmethod
+    def _run_system_command(cls, command, allow_non_zero=False):
+        completed = subprocess.run(command, capture_output=True, text=False)
+        stdout = cls._decode_console_output(completed.stdout)
+        stderr = cls._decode_console_output(completed.stderr)
+
+        if completed.returncode != 0 and not allow_non_zero:
+            message = stderr.strip() or f"exit code {completed.returncode}"
+            raise RuntimeError(message)
+
+        if completed.returncode != 0 and stderr.strip() and not stdout.strip() and not allow_non_zero:
+            raise RuntimeError(stderr.strip())
+
+        return stdout
+
+    @staticmethod
+    def _format_wmi_datetime(raw_value):
+        if not raw_value:
+            return ""
+        compact = str(raw_value).strip()
+        if len(compact) < 14:
+            return compact
+        try:
+            parsed = time.strptime(compact[:14], "%Y%m%d%H%M%S")
+            return time.strftime("%Y-%m-%d %H:%M:%S", parsed)
+        except ValueError:
+            return compact
 
     @staticmethod
     def _format_datetime(timestamp):
