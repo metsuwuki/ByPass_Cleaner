@@ -82,6 +82,35 @@ Output:
 
 ---
 
+## 📦 Build Setup EXE (Inno Setup)
+
+1) Install **Inno Setup 6**.
+
+2) Build app executable first (section above), then run from project root:
+
+```powershell
+.\Installer\build_setup.ps1 -AppVersion "1.0.0"
+```
+
+Output:
+
+- `Installer/Output/ByPass Cleaner Setup.exe`
+
+The setup script also auto-generates branded wizard images:
+
+- `Installer/Assets/wizard.bmp`
+- `Installer/Assets/wizard_small.bmp`
+
+You can replace these two `.bmp` files with your own design to fully customize installer visuals.
+
+Alternative (direct Inno Setup call):
+
+```powershell
+& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "Installer\ByPass Cleaner.iss"
+```
+
+---
+
 ## 🧱 Project Structure
 
 ```text
@@ -97,6 +126,10 @@ ByPass_Cleaner/
 │  └─ logo.png
 ├─ build/
 ├─ dist/
+├─ Installer/
+│  ├─ ByPass Cleaner.iss
+│  ├─ build_setup.ps1
+│  └─ Assets/ (auto-generated on first setup build)
 ├─ ByPass Cleaner.spec
 └─ ByPass Cleaner Debug.spec
 ```
