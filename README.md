@@ -5,8 +5,8 @@
 </p>
 
 <p align="center">
-  <img alt="Python" src="https://img.shields.io/badge/Python-3.13+-3776AB?logo=python&logoColor=white">
-  <img alt="UI" src="https://img.shields.io/badge/UI-PySide6%20(Qt)-41CD52?logo=qt&logoColor=white">
+  <img alt="Rust" src="https://img.shields.io/badge/Rust-1.77+-CE422B?logo=rust&logoColor=white">
+  <img alt="UI" src="https://img.shields.io/badge/UI-HTML%2FJS%20+%20Tauri-FFC700?logo=tauri&logoColor=white">
   <img alt="Platform" src="https://img.shields.io/badge/Platform-Windows-0078D6?logo=windows&logoColor=white">
   <img alt="License" src="https://img.shields.io/badge/License-Private-lightgrey">
 </p>
@@ -15,7 +15,7 @@
 
 ## ✨ Features
 
-- 🧭 Clean and modern desktop UI (PySide6 / Qt)
+- 🧭 Modern web UI (Tauri + WebView2)
 - 🔍 **Preview mode** (dry-run) before deleting files
 - ⚙️ Flexible filters:
   - file age (days)
@@ -25,7 +25,7 @@
 - 🛡️ Safety checks for protected/system locations
 - 📊 Live dashboard: scanned / matched / deleted / freed space
 - 🧾 Session logs with export support
-- 🌐 Built-in localization and theme support
+- 🌐 Built-in localization and theme support + animations
 
 ---
 
@@ -33,11 +33,12 @@
 
 Current layout:
 
-- app icon in the window and taskbar
+- modern dark/light theme with accent colors
 - cleanup filters + folder selection controls
-- preview/details/log panels
-- themes and language controls in Qt UI
-- icons configured for running process and packaged `.exe`
+- live preview/details/log panels with streaming updates
+- settings with theme and language controls
+- smooth animations and glassmorphism effects
+- icons and responsive grid layout
 
 > Tip: if Windows shows an old icon in taskbar or Explorer, clear icon cache or rename the executable once.
 
@@ -45,69 +46,34 @@ Current layout:
 
 ## 🚀 Quick Start (dev)
 
-### 1) Create and activate venv
+### 1) Install Rust
 
 ```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+# Download from https://rustup.rs/ or run if already installed
+rustup update
 ```
 
-### 2) Install dependencies
+### 2) Build and run
 
 ```powershell
-pip install -r Utils/requirements.txt
-```
-
-### 3) Run app
-
-From project root:
-
-```powershell
-python Utils/main.py
+cargo tauri dev
 ```
 
 ---
 
-## 📦 Build EXE (PyInstaller)
+## 📦 Build Release
 
 From project root:
 
 ```powershell
-python -m PyInstaller --noconfirm --clean --onefile --windowed --name "ByPass Cleaner" --icon "Utils/icon.ico" --add-data "Utils/logo.png;." --add-data "Utils/icon.ico;." --add-data "Utils/icon.png;." "Utils/main.py"
+cargo tauri build
 ```
 
 Output:
 
-- `dist/ByPass Cleaner.exe`
-
----
-
-## 📦 Build Setup EXE (Inno Setup)
-
-1) Install **Inno Setup 6**.
-
-2) Build app executable first (section above), then run from project root:
-
-```powershell
-.\Installer\build_setup.ps1 -AppVersion "1.0.0"
-```
-
-Output:
-
-- `Installer/Output/ByPass Cleaner Setup.exe`
-
-The setup script also auto-generates branded wizard images:
-
-- `Installer/Assets/wizard.bmp`
-- `Installer/Assets/wizard_small.bmp`
-
-You can replace these two `.bmp` files with your own design to fully customize installer visuals.
-
-Alternative (direct Inno Setup call):
-
-```powershell
-& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "Installer\ByPass Cleaner.iss"
-```
+- Portable EXE: `src-tauri/target/release/ByPass Cleaner.exe`
+- NSIS Installer: `src-tauri/target/release/bundle/nsis/ByPass Cleaner_1.0.0_x64-setup.exe`
+- MSI Installer: `src-tauri/target/release/bundle/msi/ByPass Cleaner_1.0.0_x64_en-US.msi`
 
 ---
 
@@ -115,33 +81,42 @@ Alternative (direct Inno Setup call):
 
 ```text
 ByPass_Cleaner/
-├─ Utils/
-│  ├─ main.py
-│  ├─ qt_app.py
-│  ├─ cleaner_core.py
-│  ├─ qt_settings.json
-│  ├─ requirements.txt
-│  ├─ icon.ico
-│  ├─ icon.png
-│  └─ logo.png
-├─ build/
-├─ dist/
+├─ src-tauri/
+│  ├─ src/
+│  │  ├─ lib.rs       (IPC + cleanup engine)
+│  │  └─ main.rs      (entry point)
+│  ├─ Cargo.toml
+│  ├─ tauri.conf.json
+│  ├─ icons/
+│  ├─ capabilities/
+│  └─ target/         (build output)
+├─ webui/
+│  └─ index.html      (HTML/CSS/JS UI)
 ├─ Installer/
-│  ├─ ByPass Cleaner.iss
-│  ├─ build_setup.ps1
-│  └─ Assets/ (auto-generated on first setup build)
-├─ ByPass Cleaner.spec
-└─ ByPass Cleaner Debug.spec
+│  ├─ ByPass Cleaner.iss  (Inno Setup config)
+│  └─ build_setup.ps1
+├─ README.md
 ```
 
 ---
 
 ## 🛠 Notes
 
-- Main UI is implemented in `Utils/qt_app.py`.
-- Cleanup engine is implemented in `Utils/cleaner_core.py`.
-- Runtime resources for onefile builds should be resolved with `_MEIPASS` when needed.
-- If you change icons/logos, rebuild `.exe` to include updated assets.
+- Main UI is implemented in `webui/index.html` (HTML/CSS/vanilla JS).
+- Cleanup engine + IPC is implemented in `src-tauri/src/lib.rs`.
+- Frontend-backend communication uses Tauri `invoke()` and `event.listen()`.
+- Icons are bundled in `src-tauri/icons/` and auto-embedded during build.
+- Settings stored in `qt_settings.json` (adjacent to executable).
+
+---
+
+## 🧹 Optional: Clean Up Old Python Files
+
+If you migrated from the previous Python+Qt version and want to clean up:
+
+```powershell
+Remove-Item -Path "Utils", "dist", "build", ".venv", "*.spec" -Recurse -Force
+```
 
 ---
 
