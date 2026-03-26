@@ -182,16 +182,16 @@ function New-InstallerBrandingAssets {
 }
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
-$distExe = Join-Path $projectRoot "dist\ByPass Cleaner.exe"
+$tauriExe = Join-Path $projectRoot "src-tauri\target\release\bypass-cleaner.exe"
 $issFile = Join-Path $PSScriptRoot "ByPass Cleaner.iss"
 $assetsDir = Join-Path $PSScriptRoot "Assets"
 $wizardImagePath = Join-Path $assetsDir "wizard.bmp"
 $wizardSmallImagePath = Join-Path $assetsDir "wizard_small.bmp"
 $logoPath = Join-Path $projectRoot "Utils\logo.png"
-$iconPath = Join-Path $projectRoot "Utils\icon.png"
+$iconPath = Join-Path $projectRoot "src-tauri\icons\icon.png"
 
-if (-not (Test-Path $distExe)) {
-    throw "Missing file: $distExe. Build the app EXE first with PyInstaller."
+if (-not (Test-Path $tauriExe)) {
+    throw "Missing file: $tauriExe. Build the app EXE first with 'tauri build'."
 }
 
 if (-not (Test-Path $issFile)) {

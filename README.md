@@ -110,6 +110,35 @@ ByPass_Cleaner/
 
 ---
 
+## 🔐 Process Safety Tools
+
+- Read-only process inventory via `list_processes`
+- Detailed process inspection with SHA256 via `get_process_info`
+- Quarantine flow via `quarantine_path` with restore support
+- Deletion scheduling on reboot via `schedule_delete_on_reboot` on Windows
+- Append-only audit trail in `audit-log.jsonl`
+- No force-kill or force-delete is executed by the main app
+
+Safe flow:
+
+- read-only inspection
+- quarantine
+- restore if needed
+- schedule delete on reboot
+- optional future elevation helper for force actions
+
+Example calls from the web UI:
+
+```js
+await post("list_processes", {});
+await post("get_process_info", { pid: 1234 });
+await post("quarantine_path", { path: "C:\\temp\\bad.exe", reason: "susp" });
+await post("schedule_delete_on_reboot", { path: "C:\\temp\\bad.exe" });
+await post("request_force_action", { action: "force_kill", target: "pid:1234" });
+```
+
+---
+
 ## 🧹 Optional: Clean Up Old Python Files
 
 If you migrated from the previous Python+Qt version and want to clean up:
