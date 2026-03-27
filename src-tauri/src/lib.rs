@@ -1,17 +1,30 @@
-use chrono::Local;
+use chrono::{Local, SecondsFormat, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::collections::HashSet;
-use std::fs;
+use sha2::{Digest, Sha256};
+use std::collections::{HashMap, HashSet, VecDeque};
+use std::fs::{self, OpenOptions};
+use std::io::{BufRead, BufReader, Read, Write};
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
+use sysinfo::{Pid, System};
 use tauri::{AppHandle, Emitter, Manager, State};
+use uuid::Uuid;
 use walkdir::WalkDir;
+
+#[cfg(target_os = "windows")]
+use widestring::U16CString;
+#[cfg(target_os = "windows")]
+use winapi::um::fileapi::{GetFileAttributesW, INVALID_FILE_ATTRIBUTES};
+#[cfg(target_os = "windows")]
+use winapi::um::winbase::{MoveFileExW, MOVEFILE_DELAY_UNTIL_REBOOT};
+#[cfg(target_os = "windows")]
+use winapi::um::winnt::FILE_ATTRIBUTE_HIDDEN;
 
 #[cfg(target_os = "windows")]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
@@ -52,6 +65,54 @@ struct RequestEnvelope {
   id: Option<String>,
   cmd: Option<String>,
   payload: Option<Value>,
+}
+
+#[derive(Serialize, Clone)]
+struct ProcessInfo {
+  pid: u32,
+  name: String,
+  exe: Option<String>,
+  cmdline: Option<String>,
+  start_ts_unix: u64,
+  cpu_pct: f32,
+  mem_bytes: u64,
+  suspicion_score: u8,
+}
+
+#[derive(Serialize, Clone)]
+struct ProcessDetail {
+  pid: u32,
+  name: String,
+  exe: Option<String>,
+  cmdline: Option<String>,
+  start_ts_unix: u64,
+  cpu_pct: f32,
+  mem_bytes: u64,
+  sha256: Option<String>,
+  digital_signature: Option<bool>,
+  parent_pid: Option<u32>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct QuarantineEntry {
+  pub id: String,
+  pub original_path: String,
+  pub quarantine_path: String,
+  pub sha256: String,
+  pub timestamp_iso: String,
+  pub operator: String,
+  pub reason: String,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+struct AuditEntry {
+  ts_iso: String,
+  operator: String,
+  action: String,
+  target: String,
+  details: Value,
+  result: String,
+  message: String,
 }
 
 fn default_settings() -> Value {
@@ -194,12 +255,389 @@ fn list_reports(out_dir: &Path) -> Value {
   Value::Array(rows)
 }
 
+fn now_iso() -> String {
+  Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true)
+}
+
+fn normalize_operator(raw: Option<&str>) -> String {
+  raw.map(str::trim)
+    .filter(|v| !v.is_empty())
+    .unwrap_or("unknown")
+    .to_string()
+}
+
+fn quarantine_root(app_root: &Path) -> PathBuf {
+  app_root.join(".quarantine")
+}
+
+fn quarantine_files_dir(app_root: &Path) -> PathBuf {
+  quarantine_root(app_root).join("files")
+}
+
+fn quarantine_manifests_dir(app_root: &Path) -> PathBuf {
+  quarantine_root(app_root).join("manifests")
+}
+
+fn quarantine_manifest_path(app_root: &Path, id: &str) -> PathBuf {
+  quarantine_manifests_dir(app_root).join(format!("{}.json", id))
+}
+
+fn audit_log_path(app_root: &Path) -> PathBuf {
+  app_root.join("audit-log.jsonl")
+}
+
+fn ensure_quarantine_dirs(app_root: &Path) -> Result<(), String> {
+  fs::create_dir_all(quarantine_files_dir(app_root)).map_err(|e| e.to_string())?;
+  fs::create_dir_all(quarantine_manifests_dir(app_root)).map_err(|e| e.to_string())?;
+  Ok(())
+}
+
+fn sanitize_filename(name: &str) -> String {
+  let mut sanitized = String::with_capacity(name.len());
+  for ch in name.chars() {
+    let safe = match ch {
+      '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*' => '_',
+      _ => ch,
+    };
+    sanitized.push(safe);
+  }
+  let trimmed = sanitized.trim().trim_matches('.').trim();
+  if trimmed.is_empty() {
+    "item".to_string()
+  } else {
+    trimmed.to_string()
+  }
+}
+
+fn append_audit_entry(
+  app_root: &Path,
+  operator: Option<&str>,
+  action: &str,
+  target: &str,
+  details: Value,
+  result: &str,
+  message: &str,
+) -> Result<(), String> {
+  let entry = AuditEntry {
+    ts_iso: now_iso(),
+    operator: normalize_operator(operator),
+    action: action.to_string(),
+    target: target.to_string(),
+    details,
+    result: result.to_string(),
+    message: message.to_string(),
+  };
+  let mut file = OpenOptions::new()
+    .create(true)
+    .append(true)
+    .open(audit_log_path(app_root))
+    .map_err(|e| e.to_string())?;
+  let line = serde_json::to_string(&entry).map_err(|e| e.to_string())?;
+  file.write_all(line.as_bytes()).map_err(|e| e.to_string())?;
+  file.write_all(b"\n").map_err(|e| e.to_string())?;
+  Ok(())
+}
+
+fn read_quarantine_entry(path: &Path) -> Result<QuarantineEntry, String> {
+  let text = fs::read_to_string(path).map_err(|e| e.to_string())?;
+  serde_json::from_str(&text).map_err(|e| e.to_string())
+}
+
+fn write_quarantine_entry(app_root: &Path, entry: &QuarantineEntry) -> Result<(), String> {
+  ensure_quarantine_dirs(app_root)?;
+  let text = serde_json::to_string_pretty(entry).map_err(|e| e.to_string())?;
+  fs::write(quarantine_manifest_path(app_root, &entry.id), text).map_err(|e| e.to_string())
+}
+
+pub fn compute_sha256(path: &Path) -> Result<String, String> {
+  let mut file = fs::File::open(path).map_err(|e| e.to_string())?;
+  let mut sha = Sha256::new();
+  let mut buffer = [0_u8; 8192];
+  loop {
+    let read = file.read(&mut buffer).map_err(|e| e.to_string())?;
+    if read == 0 {
+      break;
+    }
+    sha.update(&buffer[..read]);
+  }
+  Ok(hex::encode(sha.finalize()))
+}
+
+pub fn atomic_move(src: &Path, dst: &Path) -> Result<(), String> {
+  if let Some(parent) = dst.parent() {
+    fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+  }
+
+  match fs::rename(src, dst) {
+    Ok(_) => Ok(()),
+    Err(rename_err) => {
+      if src.is_file() {
+        fs::copy(src, dst).map_err(|e| format!("{}; fallback copy failed: {}", rename_err, e))?;
+        fs::remove_file(src).map_err(|e| format!("{}; fallback remove failed: {}", rename_err, e))?;
+        Ok(())
+      } else {
+        Err(rename_err.to_string())
+      }
+    }
+  }
+}
+
+#[cfg(target_os = "windows")]
+fn schedule_delete_on_reboot_impl(path: &Path) -> Result<(), String> {
+  let wide = U16CString::from_os_str(path.as_os_str()).map_err(|e| e.to_string())?;
+  let ok = unsafe { MoveFileExW(wide.as_ptr(), std::ptr::null(), MOVEFILE_DELAY_UNTIL_REBOOT) };
+  if ok == 0 {
+    return Err(std::io::Error::last_os_error().to_string());
+  }
+  Ok(())
+}
+
+#[cfg(not(target_os = "windows"))]
+fn schedule_delete_on_reboot_impl(_path: &Path) -> Result<(), String> {
+  Err("not supported on this platform".to_string())
+}
+
+#[cfg(target_os = "windows")]
+fn is_hidden_by_attr(path: &Path) -> bool {
+  let wide = match U16CString::from_os_str(path.as_os_str()) {
+    Ok(v) => v,
+    Err(_) => return false,
+  };
+  let attrs = unsafe { GetFileAttributesW(wide.as_ptr()) };
+  attrs != INVALID_FILE_ATTRIBUTES && (attrs & FILE_ATTRIBUTE_HIDDEN) != 0
+}
+
+#[cfg(not(target_os = "windows"))]
+fn is_hidden_by_attr(_path: &Path) -> bool {
+  false
+}
+
 fn is_hidden_name(path: &Path) -> bool {
   path
     .file_name()
     .and_then(|v| v.to_str())
     .map(|v| v.starts_with('.'))
     .unwrap_or(false)
+    || is_hidden_by_attr(path)
+}
+
+fn process_exe_string(process: &sysinfo::Process) -> Option<String> {
+  let _ = process;
+  None
+}
+
+fn process_cmdline_string(process: &sysinfo::Process) -> Option<String> {
+  let joined = process.cmd().join(" ");
+  if joined.trim().is_empty() {
+    None
+  } else {
+    Some(joined)
+  }
+}
+
+fn score_process_suspicion(exe: Option<&str>, child_count: u32, digital_signature: Option<bool>) -> u8 {
+  let mut score = 0_u8;
+  if let Some(path) = exe {
+    let lower = path.to_ascii_lowercase();
+    if lower.contains("\\temp\\") || lower.contains("\\tmp\\") || lower.contains("\\appdata\\") {
+      score = score.saturating_add(30);
+    }
+    if lower.contains("\\startup\\") || lower.contains("\\run\\") {
+      score = score.saturating_add(20);
+    }
+  }
+  if matches!(digital_signature, Some(false)) {
+    score = score.saturating_add(20);
+  }
+  if child_count >= 3 {
+    score = score.saturating_add(10);
+  }
+  score.min(100)
+}
+
+fn build_process_system() -> System {
+  let mut system = System::new_all();
+  system.refresh_all();
+  system
+}
+
+fn list_processes_impl() -> Vec<ProcessInfo> {
+  let system = build_process_system();
+  let mut child_counts: HashMap<u32, u32> = HashMap::new();
+  for process in system.processes().values() {
+    if let Some(parent) = process.parent() {
+      *child_counts.entry(parent.as_u32()).or_insert(0) += 1;
+    }
+  }
+
+  let mut rows: Vec<ProcessInfo> = system
+    .processes()
+    .iter()
+    .map(|(pid, process)| {
+      let exe = process_exe_string(process);
+      let digital_signature = None;
+      ProcessInfo {
+        pid: pid.as_u32(),
+        name: process.name().to_string(),
+        exe: exe.clone(),
+        cmdline: process_cmdline_string(process),
+        start_ts_unix: process.start_time(),
+        cpu_pct: process.cpu_usage(),
+        mem_bytes: process.memory().saturating_mul(1024),
+        suspicion_score: score_process_suspicion(
+          exe.as_deref(),
+          child_counts.get(&pid.as_u32()).copied().unwrap_or(0),
+          digital_signature,
+        ),
+      }
+    })
+    .collect();
+
+  rows.sort_by(|a, b| {
+    b.suspicion_score
+      .cmp(&a.suspicion_score)
+      .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+      .then_with(|| a.pid.cmp(&b.pid))
+  });
+  rows
+}
+
+fn get_process_info_impl(pid: u32) -> Result<ProcessDetail, String> {
+  let system = build_process_system();
+  let process = system
+    .process(Pid::from_u32(pid))
+    .ok_or_else(|| format!("process not found: {}", pid))?;
+
+  let exe = process_exe_string(process);
+  let sha256 = exe.as_ref().and_then(|path| compute_sha256(Path::new(path)).ok());
+
+  Ok(ProcessDetail {
+    pid,
+    name: process.name().to_string(),
+    exe,
+    cmdline: process_cmdline_string(process),
+    start_ts_unix: process.start_time(),
+    cpu_pct: process.cpu_usage(),
+    mem_bytes: process.memory().saturating_mul(1024),
+    sha256,
+    digital_signature: None,
+    parent_pid: process.parent().map(|parent| parent.as_u32()),
+  })
+}
+
+pub fn quarantine_path_with_root(
+  app_root: &Path,
+  raw_path: &str,
+  reason: Option<String>,
+  operator: Option<String>,
+) -> Result<QuarantineEntry, String> {
+  ensure_quarantine_dirs(app_root)?;
+
+  let source = PathBuf::from(raw_path);
+  if !source.exists() {
+    return Err("path does not exist".to_string());
+  }
+  if !source.is_file() {
+    return Err("quarantine currently supports files only".to_string());
+  }
+
+  let source_abs = source.canonicalize().map_err(|e| e.to_string())?;
+  let id = Uuid::new_v4().to_string();
+  let file_name = source_abs
+    .file_name()
+    .and_then(|v| v.to_str())
+    .map(sanitize_filename)
+    .unwrap_or_else(|| "item".to_string());
+  let destination = quarantine_files_dir(app_root).join(format!("{}-{}", id, file_name));
+  let sha256 = compute_sha256(&source_abs)?;
+
+  atomic_move(&source_abs, &destination)?;
+
+  let entry = QuarantineEntry {
+    id: id.clone(),
+    original_path: source_abs.to_string_lossy().to_string(),
+    quarantine_path: destination.to_string_lossy().to_string(),
+    sha256,
+    timestamp_iso: now_iso(),
+    operator: normalize_operator(operator.as_deref()),
+    reason: reason.unwrap_or_else(|| "unspecified".to_string()),
+  };
+
+  write_quarantine_entry(app_root, &entry)?;
+  Ok(entry)
+}
+
+pub fn list_quarantine_entries(app_root: &Path) -> Result<Vec<QuarantineEntry>, String> {
+  ensure_quarantine_dirs(app_root)?;
+  let mut entries = Vec::new();
+  for entry in fs::read_dir(quarantine_manifests_dir(app_root)).map_err(|e| e.to_string())? {
+    let path = entry.map_err(|e| e.to_string())?.path();
+    if path.extension().and_then(|v| v.to_str()) != Some("json") {
+      continue;
+    }
+    if let Ok(item) = read_quarantine_entry(&path) {
+      entries.push(item);
+    }
+  }
+  entries.sort_by(|a, b| b.timestamp_iso.cmp(&a.timestamp_iso));
+  Ok(entries)
+}
+
+fn restore_quarantine_with_root(app_root: &Path, id: &str) -> Result<QuarantineEntry, String> {
+  let manifest_path = quarantine_manifest_path(app_root, id);
+  if !manifest_path.exists() {
+    return Err("quarantine entry not found".to_string());
+  }
+
+  let entry = read_quarantine_entry(&manifest_path)?;
+  let original = PathBuf::from(&entry.original_path);
+  if original.exists() {
+    return Err("original path already exists".to_string());
+  }
+
+  let quarantine_path = PathBuf::from(&entry.quarantine_path);
+  if !quarantine_path.exists() {
+    return Err("quarantine file is missing".to_string());
+  }
+
+  atomic_move(&quarantine_path, &original)?;
+  fs::remove_file(manifest_path).map_err(|e| e.to_string())?;
+  Ok(entry)
+}
+
+fn list_audit_entries(app_root: &Path, limit: usize) -> Result<Vec<AuditEntry>, String> {
+  let path = audit_log_path(app_root);
+  if !path.exists() {
+    return Ok(Vec::new());
+  }
+
+  let file = fs::File::open(path).map_err(|e| e.to_string())?;
+  let reader = BufReader::new(file);
+  let cap = limit.max(1);
+  let mut queue: VecDeque<AuditEntry> = VecDeque::with_capacity(cap);
+  for line in reader.lines() {
+    let line = line.map_err(|e| e.to_string())?;
+    if line.trim().is_empty() {
+      continue;
+    }
+    let entry: AuditEntry = match serde_json::from_str(&line) {
+      Ok(v) => v,
+      Err(_) => continue,
+    };
+    if queue.len() == cap {
+      queue.pop_front();
+    }
+    queue.push_back(entry);
+  }
+  Ok(queue.into_iter().collect())
+}
+
+fn platform_capabilities() -> Value {
+  json!({
+    "is_windows": cfg!(target_os = "windows"),
+    "schedule_delete_on_reboot": cfg!(target_os = "windows"),
+    "force_actions_require_helper": true
+  })
 }
 
 fn parse_options(payload: &Value) -> CleanupOptions {
@@ -282,12 +720,7 @@ fn maybe_delete_empty_dirs(root: &Path, opt: &CleanupOptions, stats: &mut Cleanu
   }
 }
 
-fn run_cleanup(
-  app: AppHandle,
-  state: AppState,
-  req_id: String,
-  payload: Value,
-) {
+fn run_cleanup(app: AppHandle, state: AppState, req_id: String, payload: Value) {
   let _ = req_id;
   let started = std::time::Instant::now();
   let mut logs: Vec<String> = Vec::new();
@@ -559,6 +992,180 @@ fn post_message(raw: String, app: AppHandle, state: State<'_, AppState>) -> Resu
       emit_event(&app, "analysis-log", json!("[host] stop requested"));
       Ok(ok_response(&req_id, json!({"stopping": true})))
     }
+    "list_processes" => Ok(ok_response(&req_id, json!(list_processes_impl()))),
+    "get_process_info" => {
+      let Some(pid) = payload["pid"].as_u64() else {
+        return Ok(err_response(&req_id, "pid is required"));
+      };
+      match get_process_info_impl(pid as u32) {
+        Ok(detail) => Ok(ok_response(&req_id, json!(detail))),
+        Err(err) => Ok(err_response(&req_id, &err)),
+      }
+    }
+    "quarantine_path" => {
+      let path = payload["path"].as_str().unwrap_or("").trim().to_string();
+      if path.is_empty() {
+        return Ok(err_response(&req_id, "path is required"));
+      }
+      let reason = payload["reason"].as_str().map(|v| v.to_string());
+      let operator = payload["operator"].as_str().map(|v| v.to_string());
+      match quarantine_path_with_root(&state.app_root, &path, reason.clone(), operator.clone()) {
+        Ok(entry) => {
+          let _ = append_audit_entry(
+            &state.app_root,
+            operator.as_deref(),
+            "quarantine",
+            &path,
+            json!({
+              "id": entry.id,
+              "quarantine_path": entry.quarantine_path,
+              "sha256": entry.sha256,
+              "reason": entry.reason
+            }),
+            "ok",
+            "quarantine created",
+          );
+          Ok(ok_response(&req_id, json!(entry)))
+        }
+        Err(err) => {
+          let _ = append_audit_entry(
+            &state.app_root,
+            operator.as_deref(),
+            "quarantine",
+            &path,
+            json!({"reason": reason}),
+            "error",
+            &err,
+          );
+          Ok(err_response(&req_id, &err))
+        }
+      }
+    }
+    "list_quarantine" => match list_quarantine_entries(&state.app_root) {
+      Ok(entries) => Ok(ok_response(&req_id, json!(entries))),
+      Err(err) => Ok(err_response(&req_id, &err)),
+    },
+    "restore_quarantine" => {
+      let id = payload["id"].as_str().unwrap_or("").trim().to_string();
+      if id.is_empty() {
+        return Ok(err_response(&req_id, "id is required"));
+      }
+      match restore_quarantine_with_root(&state.app_root, &id) {
+        Ok(entry) => {
+          let _ = append_audit_entry(
+            &state.app_root,
+            None,
+            "restore",
+            &entry.original_path,
+            json!({"id": entry.id, "quarantine_path": entry.quarantine_path}),
+            "ok",
+            "quarantine entry restored",
+          );
+          Ok(ok_response(&req_id, json!(entry)))
+        }
+        Err(err) => {
+          let _ = append_audit_entry(
+            &state.app_root,
+            None,
+            "restore",
+            &id,
+            json!({"id": id}),
+            "error",
+            &err,
+          );
+          Ok(err_response(&req_id, &err))
+        }
+      }
+    }
+    "schedule_delete_on_reboot" => {
+      let path = payload["path"].as_str().unwrap_or("").trim().to_string();
+      if path.is_empty() {
+        return Ok(err_response(&req_id, "path is required"));
+      }
+      match schedule_delete_on_reboot_impl(Path::new(&path)) {
+        Ok(_) => {
+          let _ = append_audit_entry(
+            &state.app_root,
+            None,
+            "schedule_delete",
+            &path,
+            json!({"path": path}),
+            "ok",
+            "scheduled for deletion on reboot",
+          );
+          Ok(ok_response(&req_id, json!({"scheduled": true, "path": path})))
+        }
+        Err(err) => {
+          let _ = append_audit_entry(
+            &state.app_root,
+            None,
+            "schedule_delete",
+            &path,
+            json!({"path": path}),
+            "error",
+            &err,
+          );
+          Ok(err_response(&req_id, &err))
+        }
+      }
+    }
+    "request_terminate" => {
+      let Some(pid) = payload["pid"].as_u64() else {
+        return Ok(err_response(&req_id, "pid is required"));
+      };
+      let reason = payload["reason"].as_str().unwrap_or("user_requested");
+      let timeout_ms = payload["timeout_ms"].as_u64().unwrap_or(5000);
+      let response = json!({
+        "pid": pid,
+        "polite_requested": true,
+        "attempted_close": false,
+        "timeout_ms": timeout_ms,
+        "reason": reason,
+        "message": "graceful close was recorded; force termination requires elevation helper"
+      });
+      let _ = append_audit_entry(
+        &state.app_root,
+        None,
+        "request_terminate",
+        &format!("pid:{}", pid),
+        response.clone(),
+        "ok",
+        "polite terminate request recorded",
+      );
+      Ok(ok_response(&req_id, response))
+    }
+    "list_audit_log" => {
+      let limit = payload["limit"].as_u64().unwrap_or(100) as usize;
+      match list_audit_entries(&state.app_root, limit) {
+        Ok(entries) => Ok(ok_response(&req_id, json!(entries))),
+        Err(err) => Ok(err_response(&req_id, &err)),
+      }
+    }
+    "get_platform_capabilities" => Ok(ok_response(&req_id, platform_capabilities())),
+    "request_force_action" => {
+      let action = payload["action"].as_str().unwrap_or("force_kill");
+      let target = payload["target"].as_str().unwrap_or("unknown");
+      let helper_hint = format!(
+        "ByPassCleaner.Helper.exe --action={} --target={} --reason=<reason>",
+        action, target
+      );
+      let response = json!({
+        "need_elevation": true,
+        "helper_required": true,
+        "helper_cmd": helper_hint,
+        "message": "force actions are blocked in main app and require signed elevation helper"
+      });
+      let _ = append_audit_entry(
+        &state.app_root,
+        None,
+        "request_force_action",
+        target,
+        json!({"action": action}),
+        "ok",
+        "elevation helper required",
+      );
+      Ok(ok_response(&req_id, response))
+    }
     _ => Ok(err_response(&req_id, &format!("Unsupported command: {}", cmd))),
   }
 }
@@ -612,4 +1219,27 @@ pub fn run() {
     })
     .run(app_context())
     .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  fn make_temp_dir(prefix: &str) -> PathBuf {
+    let root = std::env::temp_dir().join(format!("bypass-cleaner-{}-{}", prefix, Uuid::new_v4()));
+    fs::create_dir_all(&root).expect("temp dir");
+    root
+  }
+
+  #[test]
+  fn compute_sha256_matches_expected_hash() {
+    let root = make_temp_dir("sha256");
+    let path = root.join("sample.txt");
+    fs::write(&path, b"abc").expect("write sample");
+
+    let hash = compute_sha256(&path).expect("hash");
+    assert_eq!(hash, "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+
+    let _ = fs::remove_dir_all(root);
+  }
 }
