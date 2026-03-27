@@ -191,7 +191,7 @@ $logoPath = Join-Path $projectRoot "Utils\logo.png"
 $iconPath = Join-Path $projectRoot "src-tauri\icons\icon.png"
 
 if (-not (Test-Path $tauriExe)) {
-    throw "Missing file: $tauriExe. Build the app EXE first with 'tauri build'."
+    throw "Missing file: $tauriExe. Build the app EXE first with 'cargo build --release' in .\\src-tauri."
 }
 
 if (-not (Test-Path $issFile)) {

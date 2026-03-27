@@ -133,6 +133,18 @@
               <div id="detailsBox" class="log-box"></div>
             </section>
           </div>
+
+          <section class="card" style="margin-top:8px; min-height: 240px;">
+            <div class="card-title">Matched Files</div>
+            <div class="table-wrap">
+              <table class="table" id="matchesTable">
+                <thead>
+                  <tr><th>Action</th><th>Kind</th><th>Size</th><th>Modified</th><th>Path</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </section>
         </div>
 
         <div id="view-processes" class="panel-body view hidden">
@@ -142,12 +154,44 @@
             <button id="btnRefreshAudit" class="btn">Refresh Audit</button>
           </div>
 
+          <div class="row" style="margin-bottom:8px;">
+            <div class="field" style="grid-column: span 5;">
+              <label for="processSearchInput">Process Search</label>
+              <input id="processSearchInput" type="text" placeholder="name, path, cmdline, family" />
+            </div>
+            <div class="field" style="grid-column: span 4;">
+              <label for="processFilterSelect">Threat Filter</label>
+              <select id="processFilterSelect">
+                <option value="active">High Risk First</option>
+                <option value="all">All Processes</option>
+                <option value="critical">Critical Only</option>
+                <option value="high">High Only</option>
+                <option value="watch">Watchlist</option>
+                <option value="miner">Likely Miner</option>
+                <option value="rat">Likely RAT</option>
+                <option value="trojan">Likely Trojan</option>
+                <option value="suspicious">Suspicious Generic</option>
+              </select>
+            </div>
+            <div class="field" style="grid-column: span 3;">
+              <label for="processLimitSelect">Visible Rows</label>
+              <select id="processLimitSelect">
+                <option value="30">30</option>
+                <option value="60">60</option>
+                <option value="120">120</option>
+                <option value="9999">All</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="processSummary" class="process-summary"></div>
+
           <section class="card" style="margin-bottom:8px; min-height: 280px;">
             <div class="card-title">Processes</div>
-            <div class="table-wrap">
+            <div class="table-wrap process-wrap">
               <table class="table" id="processesTable">
                 <thead>
-                  <tr><th>PID</th><th>Name</th><th>Path</th><th>Started</th><th>CPU%</th><th>MEM</th><th>Suspicion</th><th>Actions</th></tr>
+                  <tr><th>Process</th><th>Runtime</th><th>Actions</th></tr>
                 </thead>
                 <tbody></tbody>
               </table>
@@ -180,10 +224,10 @@
           <div class="split">
             <section class="card">
               <div class="card-title">Reports</div>
-              <div class="table-wrap">
+              <div class="table-wrap report-list-wrap">
                 <table class="table" id="reportsTable">
                   <thead>
-                    <tr><th>Modified</th><th>Size</th><th>Path</th><th>Action</th></tr>
+                    <tr><th>Report</th><th>Open</th></tr>
                   </thead>
                   <tbody></tbody>
                 </table>
@@ -191,14 +235,18 @@
             </section>
             <section class="card">
               <div class="card-title">Report Preview</div>
-              <div id="reportPreview" class="log-box"></div>
+              <div id="reportPreview" class="report-canvas"></div>
             </section>
           </div>
         </div>
 
         <div id="view-settings" class="panel-body view hidden">
           <div class="row">
-            <div class="field" style="grid-column: span 4;">
+            <div class="field" style="grid-column: span 3;">
+              <label for="operatorInput">Operator</label>
+              <input id="operatorInput" type="text" placeholder="Operator name" />
+            </div>
+            <div class="field" style="grid-column: span 3;">
               <label for="themeModeSelect">Theme Mode</label>
               <select id="themeModeSelect">
                 <option value="AUTO">System (Auto)</option>
@@ -206,7 +254,7 @@
                 <option value="LIGHT">Light</option>
               </select>
             </div>
-            <div class="field" style="grid-column: span 4;">
+            <div class="field" style="grid-column: span 3;">
               <label for="accentSelect">Accent</label>
               <select id="accentSelect">
                 <option value="AMETHYST">Amethyst</option>
@@ -220,14 +268,12 @@
                 <option value="ASH">Ash</option>
               </select>
             </div>
-            <div class="field" style="grid-column: span 4;">
+            <div class="field" style="grid-column: span 3;">
               <label for="langSelect">Language</label>
               <select id="langSelect">
                 <option value="auto">Auto</option>
                 <option value="en">English</option>
                 <option value="ru">Russian</option>
-                <option value="uk">Ukrainian</option>
-                <option value="de">German</option>
               </select>
             </div>
           </div>

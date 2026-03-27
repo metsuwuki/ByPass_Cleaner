@@ -9,10 +9,15 @@
       capabilities: {
         is_windows: false,
         schedule_delete_on_reboot: false,
+        aggressive_delete: false,
         force_actions_require_helper: true
       },
       settings: null,
       report: null,
+      matchedItems: [],
+      processSearch: "",
+      processFilter: "active",
+      processLimit: 30,
       themeMode: "AUTO",
       accent: "AMETHYST",
       view: "home",
@@ -67,6 +72,11 @@
         refreshAudit: "Refresh Audit",
         auditLog: "Audit Log",
         quarantine: "Quarantine",
+        processSearch: "Process Search",
+        threatFilter: "Threat Filter",
+        visibleRows: "Visible Rows",
+        matchedFiles: "Matched Files",
+        operator: "Operator",
         themeMode: "Theme Mode",
         accent: "Accent",
         language: "Language"
@@ -112,6 +122,11 @@
         refreshAudit: "Обновить аудит",
         auditLog: "Журнал аудита",
         quarantine: "Карантин",
+        processSearch: "Поиск процесса",
+        threatFilter: "Фильтр угроз",
+        visibleRows: "Видимые строки",
+        matchedFiles: "Совпавшие файлы",
+        operator: "Оператор",
         themeMode: "Тема",
         accent: "Акцент",
         language: "Язык"
@@ -125,6 +140,10 @@
     function t(key) {
       const langPack = i18n[state.lang] || i18n.en;
       return langPack[key] || i18n.en[key] || key;
+    }
+
+    function langText(en, ru) {
+      return state.lang === "ru" ? ru : en;
     }
 
     function detectLanguage(raw) {
@@ -186,11 +205,19 @@
       const labelThemeMode = document.querySelector('label[for="themeModeSelect"]');
       const labelAccent = document.querySelector('label[for="accentSelect"]');
       const labelLang = document.querySelector('label[for="langSelect"]');
+      const labelOperator = document.querySelector('label[for="operatorInput"]');
+      const labelProcessSearch = document.querySelector('label[for="processSearchInput"]');
+      const labelProcessFilter = document.querySelector('label[for="processFilterSelect"]');
+      const labelProcessLimit = document.querySelector('label[for="processLimitSelect"]');
       if (labelTarget) labelTarget.textContent = t("targetFolder");
       if (labelOutDir) labelOutDir.textContent = t("reportsDir");
       if (labelDays) labelDays.textContent = t("olderDays");
       if (labelMinSize) labelMinSize.textContent = t("minSize");
       if (labelExt) labelExt.textContent = t("ext");
+      if (labelOperator) labelOperator.textContent = t("operator");
+      if (labelProcessSearch) labelProcessSearch.textContent = t("processSearch");
+      if (labelProcessFilter) labelProcessFilter.textContent = t("threatFilter");
+      if (labelProcessLimit) labelProcessLimit.textContent = t("visibleRows");
       if (labelThemeMode) labelThemeMode.textContent = t("themeMode");
       if (labelAccent) labelAccent.textContent = t("accent");
       if (labelLang) labelLang.textContent = t("language");
@@ -212,14 +239,28 @@
       document.getElementById("btnRefreshQuarantine").textContent = t("refreshQuarantine");
       document.getElementById("btnRefreshAudit").textContent = t("refreshAudit");
 
+      const processFilterSelect = document.getElementById("processFilterSelect");
+      if (processFilterSelect && processFilterSelect.options.length >= 9) {
+        processFilterSelect.options[0].textContent = state.lang === "ru" ? "Риск: сначала опасные" : "High Risk First";
+        processFilterSelect.options[1].textContent = state.lang === "ru" ? "Все процессы" : "All Processes";
+        processFilterSelect.options[2].textContent = state.lang === "ru" ? "Только Critical" : "Critical Only";
+        processFilterSelect.options[3].textContent = state.lang === "ru" ? "Только High" : "High Only";
+        processFilterSelect.options[4].textContent = state.lang === "ru" ? "Watchlist" : "Watchlist";
+        processFilterSelect.options[5].textContent = state.lang === "ru" ? "Похожие на майнер" : "Likely Miner";
+        processFilterSelect.options[6].textContent = state.lang === "ru" ? "Похожие на RAT" : "Likely RAT";
+        processFilterSelect.options[7].textContent = state.lang === "ru" ? "Похожие на троян" : "Likely Trojan";
+        processFilterSelect.options[8].textContent = state.lang === "ru" ? "Подозрительные общие" : "Suspicious Generic";
+      }
+
       const cardTitles = document.querySelectorAll('.card-title');
       if (cardTitles[0]) cardTitles[0].textContent = t("liveLog");
       if (cardTitles[1]) cardTitles[1].textContent = t("latestSnapshot");
-      if (cardTitles[2]) cardTitles[2].textContent = t("processes");
-      if (cardTitles[3]) cardTitles[3].textContent = t("auditLog");
-      if (cardTitles[4]) cardTitles[4].textContent = t("quarantine");
-      if (cardTitles[5]) cardTitles[5].textContent = t("reports");
-      if (cardTitles[6]) cardTitles[6].textContent = t("reportPreview");
+      if (cardTitles[2]) cardTitles[2].textContent = t("matchedFiles");
+      if (cardTitles[3]) cardTitles[3].textContent = t("processes");
+      if (cardTitles[4]) cardTitles[4].textContent = t("auditLog");
+      if (cardTitles[5]) cardTitles[5].textContent = t("quarantine");
+      if (cardTitles[6]) cardTitles[6].textContent = t("reports");
+      if (cardTitles[7]) cardTitles[7].textContent = t("reportPreview");
 
       const viewTitle = document.getElementById("viewTitle");
       if (state.view === "home") viewTitle.textContent = t("home");
@@ -227,9 +268,18 @@
       if (state.view === "reports") viewTitle.textContent = t("reports");
       if (state.view === "settings") viewTitle.textContent = t("settings");
 
+      const themeModeSelect = document.getElementById("themeModeSelect");
+      if (themeModeSelect && themeModeSelect.options.length >= 3) {
+        themeModeSelect.options[0].textContent = state.lang === "ru" ? "Система (авто)" : "System (Auto)";
+        themeModeSelect.options[1].textContent = state.lang === "ru" ? "Тёмная" : "Dark";
+        themeModeSelect.options[2].textContent = state.lang === "ru" ? "Светлая" : "Light";
+      }
+
       const langSelect = document.getElementById("langSelect");
-      if (langSelect && langSelect.options.length >= 5) {
+      if (langSelect && langSelect.options.length >= 3) {
         langSelect.options[0].textContent = state.lang === "ru" ? "Авто" : "Auto";
+        langSelect.options[1].textContent = state.lang === "ru" ? "Английский" : "English";
+        langSelect.options[2].textContent = state.lang === "ru" ? "Русский" : "Russian";
       }
     }
 
@@ -543,6 +593,11 @@
     }
 
     function formatDateTime(value) {
+      if (!value) return "-";
+      if (typeof value === "string" && Number.isNaN(Number(value))) {
+        const parsed = new Date(value);
+        return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString();
+      }
       const num = Number(value || 0);
       if (!num) return "-";
       const ms = num > 9999999999 ? num : num * 1000;
@@ -556,9 +611,209 @@
       return idx >= 0 ? raw.slice(0, idx) : raw;
     }
 
+    function basename(path) {
+      const raw = String(path || "").trim();
+      if (!raw) return "-";
+      const idx = Math.max(raw.lastIndexOf("\\"), raw.lastIndexOf("/"));
+      return idx >= 0 ? raw.slice(idx + 1) : raw;
+    }
+
+    function processRoleLabel(cmdline) {
+      const raw = String(cmdline || "").toLowerCase();
+      const match = raw.match(/--type=([a-z0-9_-]+)/);
+      if (match && match[1]) return match[1];
+      if (raw.includes("powershell")) return "powershell";
+      if (raw.includes("cmd.exe")) return "cmd";
+      return "process";
+    }
+
+    function compactText(value, max = 180) {
+      const raw = String(value || "").replace(/\s+/g, " ").trim();
+      if (!raw) return "";
+      if (raw.length <= max) return raw;
+      return raw.slice(0, max - 1) + "...";
+    }
+
     function currentOperator() {
       const user = (state.settings && state.settings.operator) || "unknown";
       return String(user || "unknown");
+    }
+
+    function severityClass(value) {
+      const raw = String(value || "").toLowerCase();
+      if (raw === "pass" || raw === "done" || raw === "deleted") return "pass";
+      if (raw === "warn" || raw === "stopped" || raw === "matched") return "warn";
+      if (raw === "fail" || raw === "error") return "fail";
+      return "";
+    }
+
+    function processSuspicionClass(score) {
+      const value = Number(score || 0);
+      if (value >= 70) return "suspicion-high";
+      if (value >= 35) return "suspicion-mid";
+      return "suspicion-low";
+    }
+
+    function renderStatusChip(label, extraClass = "") {
+      return "<span class=\"status-chip " + escapeHtml(extraClass) + "\">" + escapeHtml(label || "-") + "</span>";
+    }
+
+    function summarizeAuditDetails(details) {
+      if (!details || typeof details !== "object") return "";
+      const parts = [];
+      if (details.strategy) parts.push("strategy=" + details.strategy);
+      if (details.deleted_now === true) parts.push("deleted_now=yes");
+      if (details.scheduled_on_reboot === true) parts.push("reboot=yes");
+      if (details.reason) parts.push("reason=" + details.reason);
+      if (details.id) parts.push("id=" + details.id);
+      return parts.join(" | ");
+    }
+
+    function renderMetricChip(label, value, extraClass = "") {
+      return "<div class=\"metric-chip " + escapeHtml(extraClass) + "\"><span class=\"k\">" + escapeHtml(label) + "</span><span class=\"v\">" + escapeHtml(value) + "</span></div>";
+    }
+
+    function renderReportPreviewEmpty() {
+      const reportPreview = document.getElementById("reportPreview");
+      if (!reportPreview) return;
+      reportPreview.innerHTML = "<div class=\"report-empty\">" + escapeHtml(langText(
+        "Pick a report on the left to view a visual summary with metrics, findings, and recent log lines.",
+        "Выберите отчёт слева, и здесь появится сводный просмотр с метриками, находками и хвостом логов."
+      )) + "</div>";
+    }
+
+    function renderMiniSnapshot(report) {
+      const box = document.getElementById("detailsBox");
+      if (!box) return;
+      if (!report) {
+        box.classList.remove("rich-preview");
+        box.textContent = "";
+        return;
+      }
+
+      const cleanup = report.cleanup || {};
+      box.classList.add("rich-preview");
+      box.innerHTML =
+        "<div class=\"report-section\">" +
+          "<div class=\"report-section-title\">Session Snapshot</div>" +
+          "<div class=\"report-chip-row\">" +
+            renderStatusChip(report.final_status || "-", severityClass(report.final_status)) +
+            "<span class=\"report-meta-chip\">" + escapeHtml(report.generated_at || "-") + "</span>" +
+            "<span class=\"report-meta-chip\">" + escapeHtml(report.dry_run ? "Preview" : "Delete") + "</span>" +
+          "</div>" +
+          "<div class=\"report-grid\">" +
+            "<div class=\"report-stat\"><div class=\"k\">Scanned</div><div class=\"v\">" + escapeHtml(cleanup.scanned || 0) + "</div></div>" +
+            "<div class=\"report-stat\"><div class=\"k\">Matched</div><div class=\"v\">" + escapeHtml(cleanup.matched || 0) + "</div></div>" +
+            "<div class=\"report-stat\"><div class=\"k\">Freed</div><div class=\"v\">" + escapeHtml(formatBytes(cleanup.freed_bytes || cleanup.potential_freed_bytes || 0)) + "</div></div>" +
+            "<div class=\"report-stat\"><div class=\"k\">Errors</div><div class=\"v\">" + escapeHtml(cleanup.errors || 0) + "</div></div>" +
+          "</div>" +
+        "</div>";
+    }
+
+    function renderReportPreview(report) {
+      const reportPreview = document.getElementById("reportPreview");
+      if (!reportPreview) return;
+      if (!report) {
+        renderReportPreviewEmpty();
+        return;
+      }
+
+      const cleanup = report.cleanup || {};
+      const findings = Array.isArray(report.findings) ? report.findings : [];
+      const items = Array.isArray(report.items) ? report.items.slice(0, 8) : [];
+      const logsTail = Array.isArray(report.logs_tail) ? report.logs_tail.slice(-8) : [];
+      const optionChips = [];
+      const options = report.options || {};
+      if (options.scan_subfolders) optionChips.push("Recursive");
+      if (options.delete_empty_dirs) optionChips.push("Empty dirs");
+      if (options.skip_hidden) optionChips.push("Skip hidden");
+      if (options.use_age_filter) optionChips.push("Age " + (options.days_limit || 0) + "d");
+      if (Number(options.min_size_bytes || 0) > 0) optionChips.push("Min " + formatBytes(options.min_size_bytes));
+      if (Array.isArray(options.extensions) && options.extensions.length) optionChips.push(options.extensions.join(", "));
+
+      reportPreview.innerHTML =
+        "<section class=\"report-hero\">" +
+          "<div class=\"report-hero-top\">" +
+            "<div>" +
+              "<div class=\"report-kicker\">Cleanup Report</div>" +
+              "<div class=\"report-title\">" + escapeHtml(report.dry_run ? "Preview Analysis" : "Execution Summary") + "</div>" +
+              "<div class=\"report-subtitle\">" + escapeHtml(report.target_path || "-") + "</div>" +
+            "</div>" +
+            "<div class=\"report-score\">" +
+              "<div class=\"k\">Score</div>" +
+              "<div class=\"v\">" + escapeHtml(report.score == null ? "-" : report.score) + "</div>" +
+            "</div>" +
+          "</div>" +
+          "<div class=\"report-chip-row\">" +
+            renderStatusChip(report.final_status || "-", severityClass(report.final_status)) +
+            "<span class=\"report-meta-chip\">" + escapeHtml(report.generated_at || "-") + "</span>" +
+            "<span class=\"report-meta-chip\">" + escapeHtml(report.mode || "STANDARD") + "</span>" +
+            "<span class=\"report-meta-chip\">" + escapeHtml(report.dry_run ? "Dry-run" : "Delete mode") + "</span>" +
+          "</div>" +
+        "</section>" +
+
+        "<section class=\"report-section\">" +
+          "<div class=\"report-section-title\">Cleanup Metrics</div>" +
+          "<div class=\"report-grid\">" +
+            "<div class=\"report-stat\"><div class=\"k\">Scanned</div><div class=\"v\">" + escapeHtml(cleanup.scanned || 0) + "</div></div>" +
+            "<div class=\"report-stat\"><div class=\"k\">Matched</div><div class=\"v\">" + escapeHtml(cleanup.matched || 0) + "</div></div>" +
+            "<div class=\"report-stat\"><div class=\"k\">Deleted</div><div class=\"v\">" + escapeHtml(cleanup.deleted || 0) + "</div></div>" +
+            "<div class=\"report-stat\"><div class=\"k\">Freed</div><div class=\"v\">" + escapeHtml(formatBytes(cleanup.freed_bytes || cleanup.potential_freed_bytes || 0)) + "</div></div>" +
+          "</div>" +
+        "</section>" +
+
+        (optionChips.length ? "<section class=\"report-section\"><div class=\"report-section-title\">Applied Filters</div><div class=\"report-options\">" + optionChips.map((chip) => "<span class=\"report-meta-chip\">" + escapeHtml(chip) + "</span>").join("") + "</div></section>" : "") +
+
+        "<section class=\"report-section\">" +
+          "<div class=\"report-section-title\">Findings</div>" +
+          "<div class=\"report-findings\">" +
+            (findings.length ? findings.map((finding) => {
+              const sevClass = severityClass(finding.severity);
+              return "<article class=\"finding-card " + escapeHtml(sevClass) + "\">" +
+                "<div class=\"finding-top\">" +
+                  renderStatusChip(finding.severity || "-", sevClass) +
+                  "<div class=\"finding-title\">" + escapeHtml(finding.code || "finding") + "</div>" +
+                "</div>" +
+                "<div class=\"finding-body\">" + escapeHtml(finding.message || "-") + "</div>" +
+                "<div class=\"finding-meta\">" +
+                  "<span class=\"report-meta-chip\">" + escapeHtml(finding.category || "general") + "</span>" +
+                  "<span class=\"report-meta-chip\">Points: " + escapeHtml(finding.points == null ? 0 : finding.points) + "</span>" +
+                "</div>" +
+              "</article>";
+            }).join("") : "<div class=\"report-empty\">No findings in this report.</div>") +
+          "</div>" +
+        "</section>" +
+
+        (items.length ? "<section class=\"report-section\"><div class=\"report-section-title\">Matched Items</div><div class=\"report-listing\">" + items.map((item) => {
+          const itemClass = severityClass(item.status || item.action);
+          return "<div class=\"report-list-item\">" +
+            "<div class=\"top\">" +
+              renderStatusChip(item.status || item.action || "-", itemClass) +
+              "<span class=\"report-meta-chip\">" + escapeHtml(item.kind || "file") + "</span>" +
+              "<span class=\"report-meta-chip\">" + escapeHtml(formatBytes(item.size_bytes || 0)) + "</span>" +
+            "</div>" +
+            "<div class=\"path\">" + escapeHtml(item.path || "-") + "</div>" +
+          "</div>";
+        }).join("") + "</div></section>" : "") +
+
+        (logsTail.length ? "<section class=\"report-section\"><div class=\"report-section-title\">Recent Log Lines</div><div class=\"report-logs\">" + logsTail.map((line) => "<div class=\"report-log-line\">" + escapeHtml(line) + "</div>").join("") + "</div></section>" : "");
+    }
+
+    function renderMatchesTable() {
+      const tbody = document.querySelector("#matchesTable tbody");
+      if (!tbody) return;
+      tbody.innerHTML = "";
+
+      for (const row of state.matchedItems || []) {
+        const tr = document.createElement("tr");
+        tr.innerHTML =
+          "<td><span class=\"badge\">" + escapeHtml(row.status || row.action || "-") + "</span></td>" +
+          "<td>" + escapeHtml(row.kind || "-") + "</td>" +
+          "<td>" + escapeHtml(formatBytes(row.size_bytes || 0)) + "</td>" +
+          "<td>" + escapeHtml(formatDateTime(row.modified_unix || 0)) + "</td>" +
+          "<td class=\"mono\">" + escapeHtml(row.path || "-") + "</td>";
+        tbody.appendChild(tr);
+      }
     }
 
     function showModal({ title, body, actions = [] }) {
@@ -638,30 +893,141 @@
       const tbody = document.querySelector("#processesTable tbody");
       if (!tbody) return;
       tbody.innerHTML = "";
+      const query = String(state.processSearch || "").trim().toLowerCase();
+      const filter = state.processFilter || "active";
+      const visible = (state.processes || []).filter((row) => {
+        const haystack = [
+          row.name || "",
+          row.exe || "",
+          row.cmdline || "",
+          row.threat_family || "",
+          ...(row.threat_reasons || [])
+        ].join(" ").toLowerCase();
+        if (query && !haystack.includes(query)) return false;
 
-      for (const [index, row] of state.processes.entries()) {
+        if (filter === "all") return true;
+        if (filter === "active") return row.threat_risk === "critical" || row.threat_risk === "high" || row.threat_risk === "watch";
+        if (filter === "critical") return row.threat_risk === "critical";
+        if (filter === "high") return row.threat_risk === "high";
+        if (filter === "watch") return row.threat_risk === "watch";
+        if (filter === "miner" || filter === "rat" || filter === "trojan" || filter === "suspicious") {
+          return row.threat_family === filter;
+        }
+        return true;
+      }).slice(0, Number(state.processLimit || 30));
+
+      renderProcessSummary(visible);
+
+      if (!visible.length) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = "<td colspan=\"3\"><div class=\"report-empty\">" + escapeHtml(langText(
+          "No processes match the current filters.",
+          "Под текущие фильтры процессы не попали."
+        )) + "</div></td>";
+        tbody.appendChild(tr);
+        return;
+      }
+
+      for (const row of visible) {
+        const index = state.processes.indexOf(row);
         const scheduleSupported = !!(state.capabilities && state.capabilities.schedule_delete_on_reboot);
+        const aggressiveSupported = !!(state.capabilities && state.capabilities.aggressive_delete);
         const scheduleButton = scheduleSupported
           ? "<button class=\"btn mini\" data-action=\"schedule\" data-index=\"" + index + "\">Schedule Delete</button>"
           : "<button class=\"btn mini\" disabled title=\"Available on Windows only\">Schedule Delete</button>";
+        const aggressiveButton = aggressiveSupported
+          ? "<button class=\"btn mini warn\" data-action=\"aggressive\" data-index=\"" + index + "\">Aggressive Delete</button>"
+          : "<button class=\"btn mini\" disabled title=\"Available on Windows only\">Aggressive Delete</button>";
         const tr = document.createElement("tr");
-        tr.innerHTML = "<td class=\"mono\">" + row.pid + "</td>" +
-          "<td>" + escapeHtml(row.name || "-") + "</td>" +
-          "<td class=\"mono\">" + escapeHtml(row.exe || "-") + "</td>" +
-          "<td>" + escapeHtml(formatDateTime(row.start_ts_unix)) + "</td>" +
-          "<td>" + escapeHtml(Number(row.cpu_pct || 0).toFixed(1)) + "</td>" +
-          "<td>" + escapeHtml(formatBytes(row.mem_bytes || 0)) + "</td>" +
-          "<td><span class=\"badge\">" + escapeHtml(row.suspicion_score || 0) + "</span></td>" +
-          "<td><div class=\"action-row\">" +
-          "<button class=\"btn mini\" data-action=\"info\" data-index=\"" + index + "\">Info</button>" +
-          "<button class=\"btn mini\" data-action=\"open\" data-index=\"" + index + "\">Open Folder</button>" +
-          "<button class=\"btn mini\" data-action=\"close\" data-index=\"" + index + "\">Request Close</button>" +
-          "<button class=\"btn mini\" data-action=\"quarantine\" data-index=\"" + index + "\">Quarantine</button>" +
-          scheduleButton +
-          "<button class=\"btn mini warn\" data-action=\"force\" data-index=\"" + index + "\">Request Force</button>" +
-          "</div></td>";
+        tr.className = "process-row";
+        const threatClass = severityClass(row.threat_risk);
+        const role = processRoleLabel(row.cmdline);
+        const reasons = Array.isArray(row.threat_reasons) && row.threat_reasons.length
+          ? row.threat_reasons.slice(0, 3).map((reason) => "<span class=\"report-meta-chip\">" + escapeHtml(reason) + "</span>").join("")
+          : "<span class=\"report-meta-chip\">No strong malware indicators</span>";
+        tr.innerHTML =
+          "<td>" +
+            "<div class=\"process-main\">" +
+              "<div class=\"process-topline\">" +
+                "<div class=\"process-name\">" + escapeHtml(row.name || basename(row.exe)) + "</div>" +
+                "<span class=\"process-pid\">PID " + escapeHtml(row.pid) + "</span>" +
+                "<span class=\"report-meta-chip\">" + escapeHtml(role) + "</span>" +
+                renderStatusChip(row.threat_family || "clean", threatClass) +
+              "</div>" +
+              "<div class=\"process-path\" title=\"" + escapeHtml(row.exe || "-") + "\">" + escapeHtml(row.exe || "-") + "</div>" +
+              "<div class=\"process-subline\" title=\"" + escapeHtml(row.cmdline || "Command line unavailable") + "\">" + escapeHtml(compactText(row.cmdline || "Command line unavailable", 220)) + "</div>" +
+              "<div class=\"process-why\">" + reasons + "</div>" +
+            "</div>" +
+          "</td>" +
+          "<td>" +
+            "<div class=\"process-metrics\">" +
+              renderMetricChip("Started", formatDateTime(row.start_ts_unix)) +
+              renderMetricChip("CPU", Number(row.cpu_pct || 0).toFixed(1) + "%") +
+              renderMetricChip("Memory", formatBytes(row.mem_bytes || 0)) +
+              renderMetricChip("Suspicion", String(row.suspicion_score || 0), processSuspicionClass(row.suspicion_score)) +
+              renderMetricChip("Confidence", String(row.threat_confidence || 0) + "%", threatClass) +
+            "</div>" +
+          "</td>" +
+          "<td>" +
+            "<div class=\"process-actions\">" +
+              "<div class=\"action-row\">" +
+                "<button class=\"btn mini\" data-action=\"info\" data-index=\"" + index + "\">Info</button>" +
+                "<button class=\"btn mini\" data-action=\"open\" data-index=\"" + index + "\">Open Folder</button>" +
+                "<button class=\"btn mini\" data-action=\"close\" data-index=\"" + index + "\">Request Close</button>" +
+                "<button class=\"btn mini\" data-action=\"quarantine\" data-index=\"" + index + "\">Quarantine</button>" +
+                scheduleButton +
+                aggressiveButton +
+                "<button class=\"btn mini\" data-action=\"force\" data-index=\"" + index + "\">Helper Info</button>" +
+              "</div>" +
+            "</div>" +
+          "</td>";
         tbody.appendChild(tr);
       }
+    }
+
+    function renderProcessSummary(visibleRows) {
+      const box = document.getElementById("processSummary");
+      if (!box) return;
+
+      const all = Array.isArray(state.processes) ? state.processes : [];
+      const visible = Array.isArray(visibleRows) ? visibleRows : [];
+      const countRisk = (risk) => all.filter((row) => row.threat_risk === risk).length;
+      const suspiciousFamilies = visible.filter((row) => row.threat_family && row.threat_family !== "clean").length;
+
+      box.innerHTML =
+        "<div class=\"process-summary-card\">" +
+          "<div class=\"k\">" + escapeHtml(langText("View", "Срез")) + "</div>" +
+          "<div class=\"v\">" + escapeHtml(String(visible.length)) + "</div>" +
+          "<div class=\"sub\">" + escapeHtml(langText(
+            "visible now, from " + all.length + " loaded processes",
+            "видно сейчас, из " + all.length + " загруженных процессов"
+          )) + "</div>" +
+        "</div>" +
+        "<div class=\"process-summary-card fail\">" +
+          "<div class=\"k\">Critical</div>" +
+          "<div class=\"v\">" + escapeHtml(String(countRisk("critical"))) + "</div>" +
+          "<div class=\"sub\">" + escapeHtml(langText("highest risk", "максимальный риск")) + "</div>" +
+        "</div>" +
+        "<div class=\"process-summary-card warn\">" +
+          "<div class=\"k\">High</div>" +
+          "<div class=\"v\">" + escapeHtml(String(countRisk("high"))) + "</div>" +
+          "<div class=\"sub\">" + escapeHtml(langText("need review", "нужна проверка")) + "</div>" +
+        "</div>" +
+        "<div class=\"process-summary-card warn\">" +
+          "<div class=\"k\">Watch</div>" +
+          "<div class=\"v\">" + escapeHtml(String(countRisk("watch"))) + "</div>" +
+          "<div class=\"sub\">" + escapeHtml(langText("watch list", "список наблюдения")) + "</div>" +
+        "</div>" +
+        "<div class=\"process-summary-card pass\">" +
+          "<div class=\"k\">" + escapeHtml(langText("Clean", "Чистые")) + "</div>" +
+          "<div class=\"v\">" + escapeHtml(String(countRisk("clean"))) + "</div>" +
+          "<div class=\"sub\">" + escapeHtml(langText("low concern", "низкий риск")) + "</div>" +
+        "</div>" +
+        "<div class=\"process-summary-card\">" +
+          "<div class=\"k\">" + escapeHtml(langText("Visible Alerts", "Видимые алерты")) + "</div>" +
+          "<div class=\"v\">" + escapeHtml(String(suspiciousFamilies)) + "</div>" +
+          "<div class=\"sub\">" + escapeHtml(langText("flagged families in view", "метки угроз в текущем списке")) + "</div>" +
+        "</div>";
     }
 
     async function loadPlatformCapabilities() {
@@ -671,6 +1037,7 @@
           state.capabilities = {
             is_windows: !!caps.is_windows,
             schedule_delete_on_reboot: !!caps.schedule_delete_on_reboot,
+            aggressive_delete: !!caps.aggressive_delete,
             force_actions_require_helper: caps.force_actions_require_helper !== false
           };
           return;
@@ -681,6 +1048,7 @@
       state.capabilities = {
         is_windows: navigator.platform.toLowerCase().includes("win"),
         schedule_delete_on_reboot: navigator.platform.toLowerCase().includes("win"),
+        aggressive_delete: navigator.platform.toLowerCase().includes("win"),
         force_actions_require_helper: true
       };
     }
@@ -689,6 +1057,16 @@
       const tbody = document.querySelector("#quarantineTable tbody");
       if (!tbody) return;
       tbody.innerHTML = "";
+
+      if (!state.quarantine.length) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = "<td colspan=\"4\"><div class=\"report-empty\">" + escapeHtml(langText(
+          "Quarantine is empty.",
+          "Карантин пуст."
+        )) + "</div></td>";
+        tbody.appendChild(tr);
+        return;
+      }
 
       for (const row of state.quarantine) {
         const tr = document.createElement("tr");
@@ -703,13 +1081,88 @@
     function renderAuditLog() {
       const box = document.getElementById("auditLogBox");
       if (!box) return;
-      box.textContent = (state.audit || []).map((row) => {
-        return "[" + (row.ts_iso || "-") + "] " +
-          (row.action || "unknown") + " | " +
-          (row.result || "-") + " | " +
-          (row.target || "-") + "\n" +
-          (row.message || "");
-      }).join("\n\n");
+      const rows = Array.isArray(state.audit) ? state.audit : [];
+      box.classList.add("audit-feed");
+      if (!rows.length) {
+        box.innerHTML = "<div class=\"report-empty\">" + escapeHtml(langText(
+          "Audit log is empty.",
+          "Журнал аудита пуст."
+        )) + "</div>";
+        return;
+      }
+
+      box.innerHTML = rows.map((row) => {
+        const details = summarizeAuditDetails(row.details);
+        const sev = severityClass(row.result);
+        const action = String(row.action || "unknown").replace(/_/g, " ");
+        return "<article class=\"audit-entry " + escapeHtml(sev) + "\">" +
+          "<div class=\"audit-entry-top\">" +
+            "<div class=\"audit-entry-title\">" + escapeHtml(action) + "</div>" +
+            renderStatusChip(row.result || "-", sev) +
+            "<span class=\"report-meta-chip\">" + escapeHtml(formatDateTime(row.ts_iso || 0)) + "</span>" +
+          "</div>" +
+          "<div class=\"audit-target\">" + escapeHtml(row.target || "-") + "</div>" +
+          "<div class=\"audit-message\">" + escapeHtml(row.message || langText("No message", "Без сообщения")) + "</div>" +
+          "<div class=\"audit-entry-meta\">" +
+            (details ? "<span class=\"report-meta-chip\">" + escapeHtml(details) + "</span>" : "") +
+            (row.operator ? "<span class=\"report-meta-chip\">" + escapeHtml(langText("operator", "оператор") + ": " + row.operator) + "</span>" : "") +
+          "</div>" +
+        "</article>";
+      }).join("");
+    }
+
+    function showAggressiveDeleteResult(result) {
+      const body = document.createElement("div");
+      body.className = "stack";
+      const steps = Array.isArray(result.steps) && result.steps.length
+        ? result.steps.map((step) => "<div class=\"report-log-line\">" + escapeHtml(step) + "</div>").join("")
+        : "<div class=\"report-log-line\">No detailed steps were returned.</div>";
+      body.innerHTML =
+        "<div class=\"modal-note\">Aggressive delete finished. If the file could not be removed immediately, the app scheduled deletion on reboot.</div>" +
+        "<div class=\"kv-grid\">" +
+          "<div class=\"kv-card\"><div class=\"k\">Strategy</div><div class=\"v\">" + escapeHtml(result.strategy || "-") + "</div></div>" +
+          "<div class=\"kv-card\"><div class=\"k\">Deleted Now</div><div class=\"v\">" + escapeHtml(result.deleted_now ? "yes" : "no") + "</div></div>" +
+          "<div class=\"kv-card\"><div class=\"k\">Scheduled On Reboot</div><div class=\"v\">" + escapeHtml(result.scheduled_on_reboot ? "yes" : "no") + "</div></div>" +
+          "<div class=\"kv-card\"><div class=\"k\">Final Path</div><div class=\"v\">" + escapeHtml(result.final_path || result.path || "-") + "</div></div>" +
+        "</div>" +
+        "<div class=\"report-section\"><div class=\"report-section-title\">Delete Steps</div><div class=\"stack\">" + steps + "</div></div>";
+      showModal({ title: "Aggressive Delete Result", body, actions: [{ label: "Close" }] });
+    }
+
+    function updateLiveMetrics(stats) {
+      const c = stats || {};
+      const scanned = Number(c.scanned || 0);
+      const matched = Number(c.matched || 0);
+      const deleted = Number(c.deleted || 0);
+      const errors = Number(c.errors || 0);
+      const freed = Number(c.freed_bytes || c.potential_freed_bytes || c.matched_bytes || 0);
+
+      document.getElementById("kScanned").textContent = String(scanned);
+      document.getElementById("kMatched").textContent = String(matched);
+      document.getElementById("kDeleted").textContent = String(deleted);
+      document.getElementById("kFreed").textContent = formatBytes(freed);
+      document.getElementById("kErrors").textContent = String(errors);
+
+      const safeScanned = Math.max(1, scanned);
+      const matchPct = Math.min(100, Math.round((matched / safeScanned) * 100));
+      const deletePct = Math.min(100, Math.round((deleted / safeScanned) * 100));
+      const errorPct = Math.min(100, Math.round((errors / safeScanned) * 100));
+
+      document.getElementById("mMatch").textContent = matchPct + "%";
+      document.getElementById("mDelete").textContent = deletePct + "%";
+      document.getElementById("mError").textContent = errorPct + "%";
+      document.getElementById("mMatchBar").style.width = matchPct + "%";
+      document.getElementById("mDeleteBar").style.width = deletePct + "%";
+      document.getElementById("mErrorBar").style.width = errorPct + "%";
+    }
+
+    function resetLiveMetrics() {
+      updateLiveMetrics({});
+      state.report = null;
+      state.matchedItems = [];
+      renderMatchesTable();
+      renderMiniSnapshot(null);
+      renderReportPreviewEmpty();
     }
 
     async function refreshProcesses() {
@@ -738,7 +1191,10 @@
       const detail = await post("get_process_info", { pid: proc.pid });
       const body = document.createElement("div");
       body.className = "stack";
-      body.innerHTML = "<div class=\"modal-note\">Read-only process inspection. No destructive action is executed from this dialog.</div>" +
+      const reasons = Array.isArray(detail.threat_reasons) && detail.threat_reasons.length
+        ? detail.threat_reasons.map((reason) => "<span class=\"report-meta-chip\">" + escapeHtml(reason) + "</span>").join("")
+        : "<span class=\"report-meta-chip\">No strong malware indicators</span>";
+      body.innerHTML = "<div class=\"modal-note\">Read-only process inspection. Malware family labels here are heuristic triage signals, not a guaranteed antivirus verdict.</div>" +
         "<div class=\"kv-grid\">" +
         "<div class=\"kv-card\"><div class=\"k\">PID</div><div class=\"v\">" + escapeHtml(detail.pid) + "</div></div>" +
         "<div class=\"kv-card\"><div class=\"k\">Name</div><div class=\"v\">" + escapeHtml(detail.name || "-") + "</div></div>" +
@@ -746,7 +1202,12 @@
         "<div class=\"kv-card\"><div class=\"k\">SHA256</div><div class=\"v\">" + escapeHtml(detail.sha256 || "unavailable") + "</div></div>" +
         "<div class=\"kv-card\"><div class=\"k\">Command Line</div><div class=\"v\">" + escapeHtml(detail.cmdline || "-") + "</div></div>" +
         "<div class=\"kv-card\"><div class=\"k\">Parent PID</div><div class=\"v\">" + escapeHtml(detail.parent_pid == null ? "-" : detail.parent_pid) + "</div></div>" +
-        "</div>";
+        "<div class=\"kv-card\"><div class=\"k\">Threat Family</div><div class=\"v\">" + escapeHtml(detail.threat_family || "clean") + "</div></div>" +
+        "<div class=\"kv-card\"><div class=\"k\">Risk / Confidence</div><div class=\"v\">" + escapeHtml((detail.threat_risk || "clean") + " / " + (detail.threat_confidence || 0) + "%") + "</div></div>" +
+        "<div class=\"kv-card\"><div class=\"k\">Signature</div><div class=\"v\">" + escapeHtml(detail.digital_signature === true ? "Valid" : detail.digital_signature === false ? "Not valid / unsigned" : "Unavailable") + "</div></div>" +
+        "<div class=\"kv-card\"><div class=\"k\">Suspicion Score</div><div class=\"v\">" + escapeHtml(detail.suspicion_score == null ? 0 : detail.suspicion_score) + "</div></div>" +
+        "</div>" +
+        "<div class=\"report-section\"><div class=\"report-section-title\">Why It Was Flagged</div><div class=\"report-chip-row\">" + reasons + "</div></div>";
       showModal({
         title: "Process Info",
         body,
@@ -869,6 +1330,40 @@
       });
     }
 
+    function showAggressiveDeleteDialog(proc) {
+      if (!(state.capabilities && state.capabilities.aggressive_delete)) {
+        addLog("[warn] aggressive delete is available on Windows only");
+        return;
+      }
+      if (!proc.exe) {
+        addLog("[warn] executable path is unavailable for this process");
+        return;
+      }
+      const body = buildConfirmBody({
+        note: "Aggressive delete tries standard deletion, resets file attributes, attempts a staged rename, and if the file is still locked it schedules deletion on reboot. This is stronger than the normal path, but it is not a magical kernel-level bypass.",
+        requireText: "AGGRESSIVE"
+      });
+      showModal({
+        title: "Aggressive Delete",
+        body,
+        actions: [
+          { label: "Cancel" },
+          {
+            label: "Delete",
+            className: "warn",
+            onClick: async ({ body }) => {
+              assertConfirmed(body, "AGGRESSIVE");
+              const result = await post("aggressive_delete_path", { path: proc.exe });
+              addLog("[host] aggressive delete | strategy=" + (result.strategy || "unknown") + " | final=" + (result.final_path || proc.exe));
+              showAggressiveDeleteResult(result);
+              await refreshAudit();
+              await refreshProcesses();
+            }
+          }
+        ]
+      });
+    }
+
     function showRequestCloseDialog(proc) {
       const body = document.createElement("div");
       body.className = "stack";
@@ -913,6 +1408,7 @@
       if (action === "close") return showRequestCloseDialog(proc);
       if (action === "quarantine") return showQuarantineDialog(proc);
       if (action === "schedule") return showScheduleDeleteDialog(proc);
+      if (action === "aggressive") return showAggressiveDeleteDialog(proc);
       if (action === "force") return showForceInfo(proc);
     }
 
@@ -976,15 +1472,28 @@
           addLog(envelope.payload || "");
         }
 
+        if (envelope.event === "analysis-progress") {
+          const payload = envelope.payload || {};
+          if (payload.stats) updateLiveMetrics(payload.stats);
+          const progress = document.getElementById("runProgress");
+          const scanned = Number(payload.stats && payload.stats.scanned || 0);
+          const phase = payload.phase || "scanning";
+          let width = Math.min(92, 14 + Math.log10(scanned + 1) * 24);
+          if (phase === "finished" || phase === "stopped") width = 100;
+          progress.style.width = width + "%";
+        }
+
         if (envelope.event === "analysis-finished") {
-          setStatus("done");
+          const finished = envelope.payload || {};
+          setStatus(finished.stopped ? "stopped" : "done");
           document.getElementById("stRun").textContent = "analysis=idle";
           document.getElementById("runProgress").style.width = "100%";
           setTimeout(() => {
             document.getElementById("runProgress").style.width = "0%";
           }, 600);
+          if (finished.stats) updateLiveMetrics(finished.stats);
 
-          const path = envelope.payload && envelope.payload.reportPath ? envelope.payload.reportPath : "";
+          const path = finished.reportPath ? finished.reportPath : "";
           if (path) {
             document.getElementById("reportHint").textContent = path;
             loadReport(path).catch(err => addLog("[error] " + err.message));
@@ -1000,6 +1509,7 @@
       return {
         target_path: document.getElementById("targetPath").value.trim(),
         out_dir: document.getElementById("outDirInput").value.trim() || "logs",
+        operator: document.getElementById("operatorInput").value.trim() || currentOperator(),
         days_limit: Number(document.getElementById("daysInput").value || 0),
         min_size_mb: Number(document.getElementById("minSizeInput").value || 0),
         extensions: document.getElementById("extInput").value.trim(),
@@ -1017,6 +1527,7 @@
 
     function applySettingsToUi(s) {
       document.getElementById("outDirInput").value = s.out_dir || "logs";
+      document.getElementById("operatorInput").value = s.operator || "";
       document.getElementById("daysInput").value = String(s.days_limit ?? 14);
       document.getElementById("minSizeInput").value = String(s.min_size_mb ?? 0);
       document.getElementById("extInput").value = s.extensions || "";
@@ -1060,39 +1571,11 @@
     function updateMetricsFromReport(report) {
       state.report = report;
       const c = report && report.cleanup ? report.cleanup : {};
-
-      const scanned = Number(c.scanned || 0);
-      const matched = Number(c.matched || 0);
-      const deleted = Number(c.deleted || 0);
-      const errors = Number(c.errors || 0);
-
-      document.getElementById("kScanned").textContent = String(scanned);
-      document.getElementById("kMatched").textContent = String(matched);
-      document.getElementById("kDeleted").textContent = String(deleted);
-      document.getElementById("kFreed").textContent = formatBytes(c.freed_bytes || 0);
-      document.getElementById("kErrors").textContent = String(errors);
-
-      const safeScanned = Math.max(1, scanned);
-      const matchPct = Math.min(100, Math.round((matched / safeScanned) * 100));
-      const deletePct = Math.min(100, Math.round((deleted / safeScanned) * 100));
-      const errorPct = Math.min(100, Math.round((errors / safeScanned) * 100));
-
-      document.getElementById("mMatch").textContent = matchPct + "%";
-      document.getElementById("mDelete").textContent = deletePct + "%";
-      document.getElementById("mError").textContent = errorPct + "%";
-      document.getElementById("mMatchBar").style.width = matchPct + "%";
-      document.getElementById("mDeleteBar").style.width = deletePct + "%";
-      document.getElementById("mErrorBar").style.width = errorPct + "%";
-
-      const summary = {
-        generated_at: report.generated_at,
-        target_path: report.target_path,
-        final_status: report.final_status,
-        dry_run: report.dry_run,
-        cleanup: c
-      };
-      document.getElementById("detailsBox").textContent = JSON.stringify(summary, null, 2);
-      document.getElementById("reportPreview").textContent = JSON.stringify(report, null, 2);
+      updateLiveMetrics(c);
+      state.matchedItems = Array.isArray(report.items) ? report.items : [];
+      renderMatchesTable();
+      renderMiniSnapshot(report);
+      renderReportPreview(report);
       document.getElementById("stVersion").textContent = "schema=" + (report.schema_version || "cleanup-v1");
     }
 
@@ -1109,11 +1592,19 @@
 
       for (const row of rows || []) {
         const tr = document.createElement("tr");
-        const d = new Date((row.modified_unix || 0) * 1000).toLocaleString();
-        tr.innerHTML = "<td>" + d + "</td>" +
-          "<td>" + formatBytes(row.size_bytes || 0) + "</td>" +
-          "<td class=\"mono\">" + row.path + "</td>" +
-          "<td><button class=\"btn\" data-open=\"" + row.path + "\">Open</button></td>";
+        tr.className = "report-row";
+        tr.innerHTML =
+          "<td>" +
+            "<div class=\"report-entry\">" +
+              "<div class=\"report-file\">" + escapeHtml(basename(row.path || "")) + "</div>" +
+              "<div class=\"report-meta\">" +
+                "<span class=\"report-meta-chip\">" + escapeHtml(formatDateTime(row.modified_unix || 0)) + "</span>" +
+                "<span class=\"report-meta-chip\">" + escapeHtml(formatBytes(row.size_bytes || 0)) + "</span>" +
+              "</div>" +
+              "<div class=\"report-path\">" + escapeHtml(row.path || "-") + "</div>" +
+            "</div>" +
+          "</td>" +
+          "<td><button class=\"btn\" data-open=\"" + escapeHtml(row.path || "") + "\">Open</button></td>";
         tbody.appendChild(tr);
       }
 
@@ -1135,6 +1626,7 @@
 
       state.logs = [];
       document.getElementById("liveLog").textContent = "";
+      resetLiveMetrics();
       setStatus("running");
       document.getElementById("stRun").textContent = "analysis=running";
       document.getElementById("runProgress").style.width = "15%";
@@ -1214,6 +1706,18 @@
       document.getElementById("btnRefreshProcesses").addEventListener("click", () => refreshProcesses().catch(e => addLog("[error] " + e.message)));
       document.getElementById("btnRefreshQuarantine").addEventListener("click", () => refreshQuarantine().catch(e => addLog("[error] " + e.message)));
       document.getElementById("btnRefreshAudit").addEventListener("click", () => refreshAudit().catch(e => addLog("[error] " + e.message)));
+      document.getElementById("processSearchInput").addEventListener("input", (e) => {
+        state.processSearch = e.target.value || "";
+        renderProcessTable();
+      });
+      document.getElementById("processFilterSelect").addEventListener("change", (e) => {
+        state.processFilter = e.target.value || "active";
+        renderProcessTable();
+      });
+      document.getElementById("processLimitSelect").addEventListener("change", (e) => {
+        state.processLimit = Number(e.target.value || 30);
+        renderProcessTable();
+      });
 
       document.getElementById("themeModeSelect").addEventListener("change", (e) => {
         applyThemeMode(e.target.value);
@@ -1227,6 +1731,9 @@
         state.lang = detectLanguage(e.target.value);
         applyTexts();
         syncEnhancedSelects();
+        persistSettings();
+      });
+      document.getElementById("operatorInput").addEventListener("change", () => {
         persistSettings();
       });
 
@@ -1261,6 +1768,12 @@
       enhanceSelects();
       initHeroMatrix();
       bind();
+      renderMiniSnapshot(null);
+      renderReportPreviewEmpty();
+      renderMatchesTable();
+      renderProcessSummary([]);
+      renderAuditLog();
+      renderQuarantineTable();
       state.lang = detectLanguage("auto");
       applyTexts();
       switchView("home");

@@ -1,334 +1,162 @@
 # ByPass Cleaner
 
-<p align="center">
-  <strong>Desktop cleanup, operational visibility, and controlled containment for Windows.</strong>
-</p>
+ByPass Cleaner is a Windows desktop utility for preview-first cleanup, quarantine, process triage, and controlled file removal.
 
-<p align="center">
-  ByPass Cleaner is a native desktop application for preview-first cleanup workflows, live reporting, process inspection, and quarantine-driven handling of suspicious files.
-</p>
+The project is built with Rust + Tauri and targets Windows 10/11.
 
-<p align="center">
-  <img alt="Rust" src="https://img.shields.io/badge/Rust-1.77.2+-CE422B?logo=rust&logoColor=white">
-  <img alt="Tauri" src="https://img.shields.io/badge/Tauri-2.10-24C8DB?logo=tauri&logoColor=white">
-  <img alt="Platform" src="https://img.shields.io/badge/Windows-10%2F11-0078D6?logo=windows&logoColor=white">
-  <img alt="UI" src="https://img.shields.io/badge/UI-WebView%20Desktop-111827">
-  <img alt="Packaging" src="https://img.shields.io/badge/Installer-Inno%20Setup-0F172A">
-  <img alt="License" src="https://img.shields.io/badge/License-Private-6B7280">
-</p>
+## Что уже реализовано
 
-<p align="center">
-  <em>Built for operators who need cleanup workflows they can inspect, review, and trust.</em>
-</p>
+- Preview / `dry-run` перед удалением.
+- Очистка по фильтрам:
+  - возраст файла в днях
+  - минимальный размер
+  - список расширений (`tmp`, `log` и т.д.)
+- Сканирование с подпапками или без.
+- Опциональное удаление пустых папок.
+- Опциональный пропуск скрытых файлов и папок.
+- Живой прогресс, статистика, журнал выполнения и итоговый JSON-отчёт.
+- Карантин:
+  - перенос файла в изолированную папку
+  - SHA-256
+  - manifest с метаданными
+  - восстановление обратно
+- Просмотр процессов:
+  - компактный список
+  - путь, командная строка, память, CPU, родительский PID
+  - SHA-256 исполняемого файла
+  - простая эвристическая оценка риска
+- Эвристические метки для процессов:
+  - `miner`
+  - `rat`
+  - `trojan`
+  - `suspicious`
+- Агрессивное удаление:
+  - обычная попытка удаления
+  - сброс атрибутов файла
+  - переименование во временный путь с повторной попыткой
+  - постановка на удаление после перезагрузки, если файл заблокирован
+- Audit log для чувствительных действий.
 
----
+## Важное ограничение
 
-## Contents
+ByPass Cleaner не является полноценным антивирусом и не даёт гарантированного определения вредоносного ПО. Метки `miner` / `rat` / `trojan` / `suspicious` основаны на локальных эвристиках и нужны для триажа, а не для финального вердикта.
 
-- [Overview](#overview)
-- [Highlights](#highlights)
-- [Why It Matters](#why-it-matters)
-- [Product Experience](#product-experience)
-- [Design Principles](#design-principles)
-- [Architecture](#architecture)
-- [Technology](#technology)
-- [Workflow](#workflow)
-- [Requirements](#requirements)
-- [Development](#development)
-- [Build And Packaging](#build-and-packaging)
-- [Runtime Artifacts](#runtime-artifacts)
-- [Repository Layout](#repository-layout)
-- [Safety Model](#safety-model)
-- [Troubleshooting](#troubleshooting)
-- [Use Cases](#use-cases)
-- [License](#license)
+Агрессивное удаление тоже не является "магическим bypass". Оно помогает с обычными блокировками и неудобными файлами, но не должно рассматриваться как обход системной защиты, драйверов, EDR или защищённых системных объектов.
 
-## Highlights
+## Основной сценарий работы
 
-| Area | What it delivers |
-| --- | --- |
-| Cleanup | Preview mode, delete mode, recursive scan, age/size/extension filters |
-| Visibility | Live counters, progress updates, session log stream, report preview |
-| Safety | Quarantine flow, restore support, audit trail, reboot-delete scheduling |
-| UX | Tauri desktop shell, polished themed interface, multi-view operator workspace |
-| Packaging | Native Windows executable, Tauri bundles, branded Inno Setup installer |
+1. Выбрать папку для анализа.
+2. Настроить фильтры.
+3. Запустить `dry-run`.
+4. Проверить список совпадений, статистику и отчёт.
+5. Запустить реальную очистку только после проверки.
+6. При необходимости использовать карантин, просмотр процессов или агрессивное удаление.
 
-## Overview
+## Сборка
 
-ByPass Cleaner is built for situations where simple file deletion is not enough and blind cleanup is unacceptable. The application provides a controlled operating surface for inspecting targets, validating cleanup rules, executing preview-first runs, and handling suspicious artifacts with recoverable containment.
+Требования:
 
-The result is a desktop tool that feels closer to an operator console than a disposable cleaner: opinionated enough to be safe, lightweight enough to stay practical, and structured enough to scale beyond one-off local use.
+- Windows 10/11 x64
+- Rust toolchain
+- WebView2 Runtime
+- Inno Setup 6 для сборки установщика
 
-## Why It Matters
-
-Most cleanup utilities optimize for speed. Mature tools optimize for trust.
-
-ByPass Cleaner is designed around that distinction. It does not assume deletion is the right first move. Instead, it exposes what will happen, what did happen, and what can be recovered afterward. That makes it more suitable for real workstation maintenance, internal tooling, and controlled remediation workflows.
-
-## Product Experience
-
-### Visual Showcase
-
-<p align="center">
-  <sub>Add product screenshots or an animated walkthrough here to match the product-grade presentation of the repository.</sub>
-</p>
-
-```text
-┌────────────────────────────────────────────────────────────────────┐
-│ ByPass Cleaner                                                    │
-│ Smart Cleanup Workspace                                           │
-├────────────────────────────────────────────────────────────────────┤
-│ Target Folder      Filters            KPIs        Live Log         │
-│ Reports Directory  Preview/Delete     Metrics     Report Snapshot  │
-│ Processes          Quarantine         Audit       Settings         │
-└────────────────────────────────────────────────────────────────────┘
-```
-
-### Preview Before Destruction
-- Run cleanup in dry-run mode before deleting anything
-- Validate target scope and filters before committing actions
-- Review live metrics and generated reports before rerunning in delete mode
-
-### Observable Execution
-- Track scanned, matched, deleted, freed bytes, and errors in real time
-- Follow the execution stream through a live in-app log
-- Inspect the latest report snapshot without leaving the interface
-
-### Containment Instead Of Guesswork
-- Inspect running processes and collect path metadata
-- Compute SHA-256 for file-backed process binaries
-- Move suspicious paths into quarantine with manifest tracking
-- Restore quarantined items when needed
-- Schedule locked files for deletion on reboot through native Windows APIs
-
-### Operator-Focused Interface
-- Dedicated views for cleanup, processes, reports, and settings
-- Accent-aware dark and light themes
-- Persistent settings and configurable report output directory
-- Localized UI foundation with active English and Russian support
-
-### Feature Grid
-
-| Capability | Details |
-| --- | --- |
-| Cleanup engine | Age, size, extension, recursion, empty-directory, and hidden-file controls |
-| Runtime visibility | Live KPIs, progress streaming, logs, and report snapshot preview |
-| Process inspection | Process listing, metadata lookup, and SHA-256 calculation |
-| Containment | Quarantine manifests, restore flow, audit trail, delete-on-reboot |
-| Desktop delivery | Native Tauri runtime, Windows packaging, branded installer |
-
-## Design Principles
-
-- Safe by default. Preview, filtering, and visibility come before destructive action.
-- Explicit over implicit. Runtime behavior should be inspectable, not hidden.
-- Native where it matters. Filesystem and system operations live in Rust, not in UI glue.
-- Recoverability matters. Quarantine and audit are first-class parts of the workflow.
-
-## Feature Set
-
-### Cleanup Engine
-- Age filter in days
-- Minimum size filter
-- Extension list filter
-- Optional recursive scan
-- Optional empty-directory removal
-- Optional skip for hidden files on Windows
-- Stop request support during active analysis
-
-### Reporting And State
-- JSON cleanup reports in a configurable output folder
-- Persisted runtime settings with normalized defaults
-- Active report tracking during execution
-- Append-only audit log for sensitive actions
-
-### Process And Quarantine Toolkit
-- Process inventory listing
-- Detailed process inspection
-- SHA-256 computation
-- Quarantine manifest generation
-- Restore flow from quarantine
-- Delete-on-reboot scheduling on Windows
-- Force-action request gate for future privileged flows
-
-## Architecture
-
-The project is intentionally split into a small number of clear layers:
-
-- Rust backend: cleanup engine, process inspection, quarantine, hashing, audit, filesystem control, Windows-native integrations
-- Tauri runtime: desktop shell, IPC boundary, bundling, application lifecycle
-- Web UI: multi-view interface implemented in plain HTML, CSS, and JavaScript
-
-This separation keeps critical operations close to the platform while allowing the interface to iterate quickly and remain visually expressive.
-
-## Technology
-
-- Rust 1.77.2+
-- Tauri 2.10.x
-- serde / serde_json
-- chrono
-- sha2
-- walkdir
-- sysinfo
-- rfd
-- Inno Setup 6
-
-## Workflow
-
-1. Select the target directory and output directory for reports.
-2. Configure age, size, extension, recursion, and hidden-file behavior.
-3. Run a preview pass first.
-4. Review counters, logs, and the generated report.
-5. Execute a delete pass only after the result is acceptable.
-6. Use process inspection, quarantine, restore, or reboot-delete when remediation is required.
-
-## Requirements
-
-- Windows 10 or Windows 11 x64
-- Rust toolchain via rustup
-- Cargo
-- Tauri CLI
-- Microsoft WebView2 Runtime
-- Optional: Inno Setup 6 for branded installer generation
-
-## Development
-
-Run the application from the repository root:
+Запуск в dev-режиме:
 
 ```powershell
+cd .\src-tauri
 cargo tauri dev
 ```
 
-The Tauri configuration points the frontend distribution to the `webui` directory.
-
-## Build And Packaging
-
-Build the release executable and bundled artifacts:
+Если `cargo tauri` не установлен:
 
 ```powershell
-cargo tauri build
+cargo install tauri-cli --version "^2"
 ```
 
-Main executable:
+Сборка `.exe`:
+
+```powershell
+cd .\src-tauri
+cargo build --release
+```
+
+Готовый исполняемый файл:
 
 ```text
 src-tauri/target/release/bypass-cleaner.exe
 ```
 
-Additional Tauri-generated bundles are written under:
+## Сборка Setup
 
-```text
-src-tauri/target/release/bundle/
-```
-
-The repository ships with a custom Inno Setup flow for producing a branded installer experience.
-
-After building the release executable, run:
+После сборки release `.exe`:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\Installer\build_setup.ps1 -AppVersion 1.0.0
 ```
 
-The installer build script will:
-- verify the release executable exists
-- generate branding bitmaps for the wizard when missing
-- discover `ISCC.exe` through PATH, registry, or standard install locations
-- compile the installer script defined in `Installer/ByPass Cleaner.iss`
+Скрипт:
 
-Installer output:
+- проверяет наличие `bypass-cleaner.exe`
+- подготавливает branding assets для Inno Setup
+- находит `ISCC.exe`
+- собирает установщик
 
-```text
-Installer/Output/
-```
-
-## Runtime Artifacts
-
-The application persists operational data through a small set of predictable artifacts:
-
-- `qt_settings.json` for saved settings
-- `logs/cleanup_report_*.json` for cleanup reports
-- `.quarantine/files/` for quarantined payloads
-- `.quarantine/manifests/` for quarantine metadata
-- `audit-log.jsonl` for append-only audit history
-
-## Host Command Surface
-
-The backend is exposed through a command-driven host bridge used by the UI for operations such as:
-
-- loading settings
-- saving settings
-- starting cleanup
-- requesting stop
-- listing processes
-- retrieving process details
-- quarantining paths
-- restoring quarantine entries
-- scheduling delete on reboot
-- requesting gated force actions
-
-That command surface keeps orchestration explicit and separates UI behavior from native execution logic.
-
-## Repository Layout
+Готовый установщик:
 
 ```text
-ByPass_Cleaner/
-├─ src-tauri/
-│  ├─ src/
-│  │  ├─ lib.rs
-│  │  └─ main.rs
-│  ├─ capabilities/
-│  ├─ icons/
-│  ├─ Cargo.toml
-│  └─ tauri.conf.json
-├─ webui/
-│  ├─ index.html
-│  ├─ styles.css
-│  └─ app.js
-├─ Installer/
-│  ├─ ByPass Cleaner.iss
-│  ├─ build_setup.ps1
-│  ├─ Assets/
-│  └─ Output/
-├─ EXE - app/
-├─ tests/
-└─ README.md
+Installer/Output/ByPass Cleaner Setup.exe
 ```
 
-## Safety Model
+## Runtime-артефакты
 
-ByPass Cleaner is designed to make sensitive file operations more traceable and recoverable.
+Во время работы приложение создаёт:
 
-- Preview mode exists to reduce accidental deletion.
-- Quarantine provides a reversible containment step.
-- Audit logging records sensitive actions as JSON Lines.
-- Reboot-delete uses the Windows scheduling API for locked paths.
-- Force-action paths are intentionally treated as gated flows, not defaults.
+- `qt_settings.json` - сохранённые настройки
+- `logs/cleanup_report_*.json` - отчёты очистки
+- `.quarantine/files/` - изолированные файлы
+- `.quarantine/manifests/` - метаданные карантина
+- `audit-log.jsonl` - журнал чувствительных действий
 
-## Troubleshooting
+## Структура репозитория
 
-### `ISCC.exe` Was Not Found
-Install Inno Setup 6 and ensure `ISCC.exe` is reachable through PATH or standard installation locations.
+Исходники:
 
-### Installer Build Cannot Find The Release EXE
-Generate the release build first:
+- `src-tauri/` - Rust backend, Tauri host, tests, config
+- `webui/` - HTML/CSS/JS интерфейс
+- `Installer/` - Inno Setup script и build-обвязка
+- `Utils/` - иконки и вспомогательные ресурсы
 
-```powershell
-cargo tauri build
-```
+Генерируемые / выходные каталоги:
 
-### Explorer Shows Stale Branding Or Old Icons
-Clear the Windows icon cache or rebuild with a version bump if Explorer continues to show cached branding.
+- `src-tauri/target/`
+- `src-tauri/gen/`
+- `Installer/Output/`
+- `.cargo-target/`
+- `EXE - app/`
+- `Setup/`
 
-### WebView Runtime Problems On Target Machines
-Ensure Microsoft WebView2 Runtime is installed and available.
+## Технологии
 
-## Suitable Use Cases
+- Rust
+- Tauri 2
+- sysinfo
+- walkdir
+- sha2
+- serde / serde_json
+- Inno Setup 6
 
-- workstation cleanup with reviewable execution
-- internal Windows utility distribution
-- controlled file maintenance workflows
-- early-stage remediation and containment tooling
+## Статус проекта
+
+Сейчас проект уже покрывает основную функциональность из описания: очистка, отчёты, карантин, просмотр процессов, triage-эвристики и агрессивное удаление с fallback на reboot delete.
+
+Что ещё стоит считать зоной для дальнейшей доработки, а не "готовым антивирусным движком":
+
+- более сильная malware-классификация
+- облачная/сигнатурная проверка
+- richer process reputation
+- расширенная работа с защищёнными системными объектами
 
 ## License
 
 Private project. All rights reserved unless explicitly stated otherwise.
-Made by Metsuwuki
