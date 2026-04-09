@@ -164,6 +164,9 @@ fn default_settings() -> Value {
       "language": "auto",
       "theme": "AUTO",
       "accent": "AMETHYST",
+            "power_profile": "BASIC",
+            "sandbox_profile": "limited",
+            "max_retries": "auto",
       "operator": operator,
       "out_dir": "logs",
       "days_limit": 14,
@@ -173,7 +176,8 @@ fn default_settings() -> Value {
       "delete_empty_dirs": false,
       "skip_hidden": true,
       "use_age_filter": true,
-      "dry_run": true
+            "dry_run": true,
+            "welcome_completed": false
     })
 }
 
@@ -2033,6 +2037,7 @@ pub fn run() {
                 .get_webview_window("main")
                 .expect("main window not found");
             let _ = window.set_title("ByPass Cleaner");
+            let _ = window.maximize();
             Ok(())
         })
         .run(app_context())

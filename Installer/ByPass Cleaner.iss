@@ -1,6 +1,6 @@
 #define MyAppName "ByPass Cleaner"
 #ifndef MyAppVersion
-  #define MyAppVersion "1.0.0"
+  #define MyAppVersion "0.3.0"
 #endif
 #define MyAppPublisher "ByPass Cleaner"
 #define MyAppExeName "ByPass Cleaner.exe"
@@ -19,7 +19,7 @@ DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 OutputDir=Output
 OutputBaseFilename=ByPass Cleaner Setup
-SetupIconFile=..\src-tauri\icons\icon.ico
+SetupIconFile=..\src-tauri\icons\256.ico
 WizardImageFile=Assets\wizard.bmp
 WizardSmallImageFile=Assets\wizard_small.bmp
 Compression=lzma
@@ -28,6 +28,8 @@ WizardStyle=modern
 PrivilegesRequired=lowest
 UninstallDisplayIcon={app}\{#MyAppExeName}
 ArchitecturesInstallIn64BitMode=x64compatible
+CloseApplications=yes
+RestartApplications=no
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -47,9 +49,13 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 Type: files; Name: "{app}\qt_settings.json"
 Type: files; Name: "{app}\cleanup_report_*.json"
 Type: filesandordirs; Name: "{app}\logs"
+Type: filesandordirs; Name: "{app}\.quarantine"
+Type: files; Name: "{app}\audit-log.jsonl"
+Type: filesandordirs; Name: "{app}\{#MyAppExeName}.WebView2"
 Type: filesandordirs; Name: "{localappdata}\{#MyAppName}"
 Type: filesandordirs; Name: "{localappdata}\com.bypass.cleaner"
 Type: filesandordirs; Name: "{userappdata}\com.bypass.cleaner"
+Type: dirifempty; Name: "{app}"
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent

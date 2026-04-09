@@ -21,22 +21,42 @@
       themeMode: "AUTO",
       accent: "AMETHYST",
       view: "home",
-      lang: "en"
+      lang: "en",
+      welcomeOpen: false,
+      welcomeDraft: null,
+      welcomePreviewRaf: 0,
+      welcomePreviewUnmount: null,
+      powerProfile: "BASIC",
+      sandboxProfile: "limited",
+      maxRetries: "auto"
     };
 
-    const ACCENT_OPTIONS = ["AMETHYST", "CHERRY", "LAVA", "GOLD", "EMERALD", "SEA", "SAPPHIRE", "QUARTZ", "ASH"];
+    const ACCENT_OPTIONS = ["AMETHYST", "RUBY", "FIRE_OPAL", "GOLD", "EMERALD", "DIAMOND", "SAPPHIRE", "QUARTZ", "VOLCANO_ASH"];
     const THEME_MODE_OPTIONS = ["AUTO", "DARK", "LIGHT"];
+    const POWER_PROFILE_OPTIONS = ["BASIC", "AUDIT", "PENTEST"];
+    const SANDBOX_PROFILE_OPTIONS = ["limited", "isolated", "none"];
     const systemThemeMedia = window.matchMedia("(prefers-color-scheme: light)");
     const tauriCore = window.__TAURI__ && window.__TAURI__.core ? window.__TAURI__.core : null;
     const tauriEvent = window.__TAURI__ && window.__TAURI__.event ? window.__TAURI__.event : null;
 
     const i18n = {
       en: {
+        navHome: "Home",
+        navProcesses: "Processes",
+        navReports: "Reports",
+        navSettings: "Settings",
+        navSupport: "Support",
+        navAbout: "About",
         home: "Home",
-        processes: "Processes",
         reports: "Reports",
         settings: "Settings",
         support: "Support",
+        viewHome: "Home",
+        viewProcesses: "Processes",
+        viewReports: "Reports",
+        viewSettings: "Settings",
+        topTitle: "ByPass Cleaner",
+        topSub: "File cleanup dashboard, no extra noise",
         subtitle: "Cleaner dashboard, no extra noise",
         ready: "ready",
         noReport: "No report loaded",
@@ -47,46 +67,72 @@
         tagPreview: "Preview",
         tagDelete: "Delete",
         tagReports: "Reports",
-        targetFolder: "Target Folder",
-        chooseFolder: "Choose Folder",
-        reportsDir: "Reports Dir",
-        olderDays: "Older Than Days",
-        minSize: "Min Size MB",
-        ext: "Extensions (csv, no dot)",
-        scanSub: "Scan subfolders",
-        delEmpty: "Delete empty dirs",
-        skipHidden: "Skip hidden",
-        ageFilter: "Use age filter",
-        previewOnly: "Preview only",
-        run: "Run Cleanup",
-        stop: "Stop",
-        load: "Load Settings",
-        save: "Save Settings",
+        lblTarget: "Target Folder",
+        btnPickTarget: "Choose Folder",
+        lblReportsDir: "Reports Dir",
+        lblOlderDays: "Older Than Days",
+        lblMinSize: "Min Size MB",
+        lblExtensions: "Extensions (csv, no dot)",
+        lblPowerProfile: "Power Profile",
+        lblSandboxProfile: "Sandbox Profile",
+        lblMaxRetries: "Max Retries",
+        lblScanSubfolders: "Scan subfolders",
+        lblDeleteEmpty: "Delete empty dirs",
+        lblSkipHidden: "Skip hidden",
+        lblUseAgeFilter: "Use age filter",
+        lblPreviewOnly: "Preview only",
+        btnRun: "Run Cleanup",
+        btnStop: "Stop",
+        btnLoadSettings: "Load Settings",
+        btnSaveSettings: "Save Settings",
+        btnOpenReportsDir: "Open Reports Dir",
+        btnListReports: "Refresh List",
+        btnRefreshProcesses: "Refresh Processes",
+        btnRefreshQuarantine: "Refresh Quarantine",
+        btnRefreshAudit: "Refresh Audit",
         openReportsDir: "Open Reports Dir",
-        liveLog: "Live Log",
-        latestSnapshot: "Latest Report Snapshot",
         refreshList: "Refresh List",
-        reportPreview: "Report Preview",
         refreshProcesses: "Refresh Processes",
         refreshQuarantine: "Refresh Quarantine",
         refreshAudit: "Refresh Audit",
+        liveLog: "Live Log",
+        latestSnapshot: "Latest Report Snapshot",
+        matchedFiles: "Matched Files",
+        processes: "Processes",
         auditLog: "Audit Log",
         quarantine: "Quarantine",
-        processSearch: "Process Search",
-        threatFilter: "Threat Filter",
-        visibleRows: "Visible Rows",
-        matchedFiles: "Matched Files",
-        operator: "Operator",
-        themeMode: "Theme Mode",
-        accent: "Accent",
-        language: "Language"
+        reportPreview: "Report Preview",
+        lblProcessSearch: "Process Search",
+        lblThreatFilter: "Threat Filter",
+        lblVisibleRows: "Visible Rows",
+        lblOperator: "Operator",
+        lblThemeMode: "Theme Mode",
+        lblAccent: "Accent",
+        lblLanguage: "Language",
+        powerProfileBasic: "BASIC",
+        powerProfileAudit: "AUDIT",
+        powerProfilePentest: "PENTEST",
+        sandboxLimited: "LIMITED",
+        sandboxIsolated: "ISOLATED",
+        sandboxNone: "NONE"
       },
       ru: {
+        navHome: "Главная",
+        navProcesses: "Процессы",
+        navReports: "Отчеты",
+        navSettings: "Настройки",
+        navSupport: "Поддержка",
+        navAbout: "О проекте",
         home: "Главная",
-        processes: "Процессы",
         reports: "Отчеты",
         settings: "Настройки",
         support: "Поддержка",
+        viewHome: "Главная",
+        viewProcesses: "Процессы",
+        viewReports: "Отчеты",
+        viewSettings: "Настройки",
+        topTitle: "ByPass Cleaner",
+        topSub: "Панель очистки файлов, без лишних возможностей",
         subtitle: "Панель очистки без лишнего шума",
         ready: "готово",
         noReport: "Отчет не загружен",
@@ -97,39 +143,55 @@
         tagPreview: "Предпросмотр",
         tagDelete: "Удаление",
         tagReports: "Отчеты",
-        targetFolder: "Целевая папка",
-        chooseFolder: "Выбрать папку",
-        reportsDir: "Папка отчетов",
-        olderDays: "Старше (дней)",
-        minSize: "Мин. размер (МБ)",
-        ext: "Расширения (csv, без точки)",
-        scanSub: "Сканировать подпапки",
-        delEmpty: "Удалять пустые папки",
-        skipHidden: "Пропускать скрытые",
-        ageFilter: "Фильтр по возрасту",
-        previewOnly: "Только предпросмотр",
-        run: "Запустить очистку",
-        stop: "Остановить",
-        load: "Загрузить настройки",
-        save: "Сохранить настройки",
+        lblTarget: "Целевая папка",
+        btnPickTarget: "Выбрать папку",
+        lblReportsDir: "Папка отчетов",
+        lblOlderDays: "Старше (дней)",
+        lblMinSize: "Мин. размер (МБ)",
+        lblExtensions: "Расширения (csv, без точки)",
+        lblPowerProfile: "Профиль мощности",
+        lblSandboxProfile: "Профиль изоляции",
+        lblMaxRetries: "Макс. число попыток",
+        lblScanSubfolders: "Сканировать подпапки",
+        lblDeleteEmpty: "Удалять пустые папки",
+        lblSkipHidden: "Пропускать скрытые",
+        lblUseAgeFilter: "Фильтр по возрасту",
+        lblPreviewOnly: "Только предпросмотр",
+        btnRun: "Запустить очистку",
+        btnStop: "Остановить",
+        btnLoadSettings: "Загрузить настройки",
+        btnSaveSettings: "Сохранить настройки",
+        btnOpenReportsDir: "Открыть папку отчетов",
+        btnListReports: "Обновить список",
+        btnRefreshProcesses: "Обновить процессы",
+        btnRefreshQuarantine: "Обновить карантин",
+        btnRefreshAudit: "Обновить аудит",
         openReportsDir: "Открыть папку отчетов",
-        liveLog: "Живой лог",
-        latestSnapshot: "Сводка последнего отчета",
         refreshList: "Обновить список",
-        reportPreview: "Предпросмотр отчета",
         refreshProcesses: "Обновить процессы",
         refreshQuarantine: "Обновить карантин",
         refreshAudit: "Обновить аудит",
+
+        liveLog: "Живой лог",
+        latestSnapshot: "Сводка последнего отчета",
+        matchedFiles: "Совпавшие файлы",
+        processes: "Процессы",
         auditLog: "Журнал аудита",
         quarantine: "Карантин",
-        processSearch: "Поиск процесса",
-        threatFilter: "Фильтр угроз",
-        visibleRows: "Видимые строки",
-        matchedFiles: "Совпавшие файлы",
-        operator: "Оператор",
-        themeMode: "Тема",
-        accent: "Акцент",
-        language: "Язык"
+        reportPreview: "Предпросмотр отчета",
+        lblProcessSearch: "Поиск процесса",
+        lblThreatFilter: "Фильтр угроз",
+        lblVisibleRows: "Видимые строки",
+        lblOperator: "Оператор",
+        lblThemeMode: "Тема",
+        lblAccent: "Акцент",
+        lblLanguage: "Язык",
+        powerProfileBasic: "БАЗОВЫЙ",
+        powerProfileAudit: "АУДИТ",
+        powerProfilePentest: "PENTEST",
+        sandboxLimited: "ОГРАНИЧЕННЫЙ",
+        sandboxIsolated: "ИЗОЛИРОВАННЫЙ",
+        sandboxNone: "БЕЗ ИЗОЛЯЦИИ"
       }
     };
 
@@ -200,6 +262,9 @@
       const labelTarget = document.querySelector('label[for="targetPath"]');
       const labelOutDir = document.querySelector('label[for="outDirInput"]');
       const labelDays = document.querySelector('label[for="daysInput"]');
+      const labelPowerProfile = document.querySelector('label[for="powerProfileSelect"]');
+      const labelSandboxProfile = document.querySelector('label[for="sandboxProfileSelect"]');
+      const labelMaxRetries = document.querySelector('label[for="maxRetriesSelect"]');
       const labelMinSize = document.querySelector('label[for="minSizeInput"]');
       const labelExt = document.querySelector('label[for="extInput"]');
       const labelThemeMode = document.querySelector('label[for="themeModeSelect"]');
@@ -209,35 +274,42 @@
       const labelProcessSearch = document.querySelector('label[for="processSearchInput"]');
       const labelProcessFilter = document.querySelector('label[for="processFilterSelect"]');
       const labelProcessLimit = document.querySelector('label[for="processLimitSelect"]');
-      if (labelTarget) labelTarget.textContent = t("targetFolder");
-      if (labelOutDir) labelOutDir.textContent = t("reportsDir");
-      if (labelDays) labelDays.textContent = t("olderDays");
-      if (labelMinSize) labelMinSize.textContent = t("minSize");
-      if (labelExt) labelExt.textContent = t("ext");
-      if (labelOperator) labelOperator.textContent = t("operator");
-      if (labelProcessSearch) labelProcessSearch.textContent = t("processSearch");
-      if (labelProcessFilter) labelProcessFilter.textContent = t("threatFilter");
-      if (labelProcessLimit) labelProcessLimit.textContent = t("visibleRows");
-      if (labelThemeMode) labelThemeMode.textContent = t("themeMode");
-      if (labelAccent) labelAccent.textContent = t("accent");
-      if (labelLang) labelLang.textContent = t("language");
+      if (labelTarget) labelTarget.textContent = t("lblTarget");
+      if (labelOutDir) labelOutDir.textContent = t("lblReportsDir");
+      if (labelDays) labelDays.textContent = t("lblOlderDays");
+      if (labelMinSize) labelMinSize.textContent = t("lblMinSize");
+      if (labelExt) labelExt.textContent = t("lblExtensions");
+      if (labelPowerProfile) labelPowerProfile.textContent = t("lblPowerProfile");
+      if (labelSandboxProfile) labelSandboxProfile.textContent = t("lblSandboxProfile");
+      if (labelMaxRetries) labelMaxRetries.textContent = t("lblMaxRetries");
+      if (labelOperator) labelOperator.textContent = t("lblOperator");
+      if (labelProcessSearch) labelProcessSearch.textContent = t("lblProcessSearch");
+      if (labelProcessFilter) labelProcessFilter.textContent = t("lblThreatFilter");
+      if (labelProcessLimit) labelProcessLimit.textContent = t("lblVisibleRows");
+      if (labelThemeMode) labelThemeMode.textContent = t("lblThemeMode");
+      if (labelAccent) labelAccent.textContent = t("lblAccent");
+      if (labelLang) labelLang.textContent = t("lblLanguage");
 
-      setCheckText("scanSubfolders", t("scanSub"));
-      setCheckText("deleteEmpty", t("delEmpty"));
-      setCheckText("skipHidden", t("skipHidden"));
-      setCheckText("useAgeFilter", t("ageFilter"));
-      setCheckText("dryRun", t("previewOnly"));
-
-      document.getElementById("btnPickTarget").textContent = t("chooseFolder");
-      document.getElementById("btnRun").textContent = t("run");
-      document.getElementById("btnStop").textContent = t("stop");
-      document.getElementById("btnLoadSettings").textContent = t("load");
-      document.getElementById("btnSaveSettings").textContent = t("save");
-      document.getElementById("btnOpenReportsDir").textContent = t("openReportsDir");
-      document.getElementById("btnListReports").textContent = t("refreshList");
-      document.getElementById("btnRefreshProcesses").textContent = t("refreshProcesses");
-      document.getElementById("btnRefreshQuarantine").textContent = t("refreshQuarantine");
-      document.getElementById("btnRefreshAudit").textContent = t("refreshAudit");
+      setCheckText("scanSubfolders", t("lblScanSubfolders"));
+      setCheckText("deleteEmpty", t("lblDeleteEmpty"));
+      setCheckText("skipHidden", t("lblSkipHidden"));
+      setCheckText("useAgeFilter", t("lblUseAgeFilter"));
+      setCheckText("dryRun", t("lblPreviewOnly"));
+      document.getElementById("btnPickTarget").textContent = t("btnPickTarget");
+      document.getElementById("btnRun").textContent = t("btnRun");
+      document.getElementById("btnStop").textContent = t("btnStop");
+      const btnOpenReportsDir = document.getElementById("btnOpenReportsDir");
+      const btnListReports = document.getElementById("btnListReports");
+      const btnRefreshProcesses = document.getElementById("btnRefreshProcesses");
+      const btnRefreshQuarantine = document.getElementById("btnRefreshQuarantine");
+      const btnRefreshAudit = document.getElementById("btnRefreshAudit");
+      if (btnOpenReportsDir) btnOpenReportsDir.textContent = t("openReportsDir");
+      if (btnListReports) btnListReports.textContent = t("refreshList");
+      if (btnRefreshProcesses) btnRefreshProcesses.textContent = t("refreshProcesses");
+      if (btnRefreshQuarantine) btnRefreshQuarantine.textContent = t("refreshQuarantine");
+      if (btnRefreshAudit) btnRefreshAudit.textContent = t("refreshAudit");
+      const btnSaveSettings = document.getElementById("btnSaveSettings");
+      if (btnSaveSettings) btnSaveSettings.textContent = t("btnSaveSettings");
 
       const processFilterSelect = document.getElementById("processFilterSelect");
       if (processFilterSelect && processFilterSelect.options.length >= 9) {
@@ -281,6 +353,20 @@
         langSelect.options[1].textContent = state.lang === "ru" ? "Английский" : "English";
         langSelect.options[2].textContent = state.lang === "ru" ? "Русский" : "Russian";
       }
+
+      const powerProfileSelect = document.getElementById("powerProfileSelect");
+      if (powerProfileSelect && powerProfileSelect.options.length >= 3) {
+        powerProfileSelect.options[0].textContent = t("powerProfileBasic");
+        powerProfileSelect.options[1].textContent = t("powerProfileAudit");
+        powerProfileSelect.options[2].textContent = t("powerProfilePentest");
+      }
+
+      const sandboxProfileSelect = document.getElementById("sandboxProfileSelect");
+      if (sandboxProfileSelect && sandboxProfileSelect.options.length >= 3) {
+        sandboxProfileSelect.options[0].textContent = t("sandboxLimited");
+        sandboxProfileSelect.options[1].textContent = t("sandboxIsolated");
+        sandboxProfileSelect.options[2].textContent = t("sandboxNone");
+      }
     }
 
     function normalizeAccent(accent) {
@@ -317,6 +403,112 @@
       state.themeMode = normalized;
     }
 
+    function formatWelcomeLanguageLabel(value, uiLang = state.lang) {
+      const raw = String(value || "auto").toLowerCase();
+      if (raw === "ru") return uiLang === "ru" ? "Русский" : "Russian";
+      if (raw === "en") return uiLang === "ru" ? "Английский" : "English";
+      return uiLang === "ru" ? "Авто" : "Auto";
+    }
+
+    function formatWelcomeThemeLabel(value, uiLang = state.lang) {
+      const raw = String(value || "AUTO").toUpperCase();
+      if (raw === "DARK") return uiLang === "ru" ? "Темная" : "Dark";
+      if (raw === "LIGHT") return uiLang === "ru" ? "Светлая" : "Light";
+      return uiLang === "ru" ? "Авто" : "Auto";
+    }
+
+    function formatWelcomeAccentLabel(value) {
+      const map = {
+        AMETHYST: "Amethyst",
+        RUBY: "Ruby",
+        FIRE_OPAL: "Fire Opal",
+        GOLD: "Gold",
+        EMERALD: "Emerald",
+        DIAMOND: "Diamond",
+        SAPPHIRE: "Sapphire",
+        QUARTZ: "Quartz",
+        VOLCANO_ASH: "Volcano Ash"
+      };
+      return map[String(value || "AMETHYST").toUpperCase()] || "Amethyst";
+    }
+
+    function applyWelcomePreviewAppearance() {
+      if (!state.welcomeDraft) return;
+      const hero = document.getElementById("welcomePreviewHero");
+      const dialog = document.querySelector("#welcomeBackdrop .welcome-dialog");
+      const backdrop = document.getElementById("welcomeBackdrop");
+      if (!hero && !dialog) return;
+
+      const accent = normalizeAccent(state.welcomeDraft.accent || "AMETHYST");
+      const theme = normalizeThemeMode(state.welcomeDraft.theme || "AUTO");
+
+      // Accent colours — kept in sync with CSS html[data-accent] rules
+      const accentMap = {
+        AMETHYST:    ["#8f4dff", "#c96eff", "#b080ff"],
+        RUBY:        ["#c4304d", "#f15a78", "#ff9eb0"],
+        FIRE_OPAL:   ["#ff6b2e", "#ff9d2e", "#ff8a57"],
+        GOLD:        ["#c9921f", "#f1c45b", "#f7d98b"],
+        EMERALD:     ["#0fa36d", "#38d39a", "#7ff0c3"],
+        DIAMOND:     ["#29bfb0", "#63e5d8", "#8ef0e6"],
+        SAPPHIRE:    ["#2f74de", "#58a1ff", "#87bcff"],
+        QUARTZ:      ["#d16eb3", "#f38bcf", "#f9addd"],
+        VOLCANO_ASH: ["#8f97a4", "#bdc5d2", "#e6edf7"]
+      };
+
+      // Background/text tokens — kept in sync with CSS :root and html[data-theme=LIGHT]
+      const bgMap = {
+        DARK:  { bgElev: "#1d1d1d", bgElev2: "#222222", bgPanel: "#20202b", text: "#e7e7e7", muted: "#a3a3a3", line: "#303030", lineSoft: "#2a2a2a" },
+        LIGHT: { bgElev: "#eef2f6", bgElev2: "#e5ebf1", bgPanel: "#f3f7fc", text: "#18222d", muted: "#526173", line: "#bcc7d3", lineSoft: "#d0d8e1" }
+      };
+
+      const [accentA, accentB, accentSoft] = accentMap[accent] || accentMap.AMETHYST;
+
+      let bg;
+      if (theme === "AUTO") {
+        // Mirror whatever theme the page currently uses
+        const cs = getComputedStyle(document.documentElement);
+        bg = {
+          bgElev:   cs.getPropertyValue("--bg-elev").trim()   || "#1d1d1d",
+          bgElev2:  cs.getPropertyValue("--bg-elev-2").trim() || "#222222",
+          bgPanel:  cs.getPropertyValue("--bg-panel").trim()  || cs.getPropertyValue("--bg-elev-2").trim() || "#222222",
+          text:     cs.getPropertyValue("--text").trim()      || "#e7e7e7",
+          muted:    cs.getPropertyValue("--muted").trim()     || "#a3a3a3",
+          line:     cs.getPropertyValue("--line").trim()      || "#303030",
+          lineSoft: cs.getPropertyValue("--line-soft").trim() || "#2a2a2a"
+        };
+      } else {
+        bg = bgMap[theme] || bgMap.DARK;
+      }
+
+      [hero, dialog].forEach((el) => {
+        if (!el) return;
+        // Set source variables only — CSS computes derived glow/surface values.
+        el.style.removeProperty("--hero-glow-a");
+        el.style.removeProperty("--hero-glow-b");
+        el.style.removeProperty("--hero-surface-top");
+        el.style.removeProperty("--hero-surface-bottom");
+
+        el.style.setProperty("--accent", accentA);
+        el.style.setProperty("--accent-2", accentB);
+        el.style.setProperty("--accent-soft", accentSoft);
+        el.style.setProperty("--bg-panel", bg.bgPanel || bg.bgElev2);
+        el.style.setProperty("--bg-elev", bg.bgElev);
+        el.style.setProperty("--bg-elev-2", bg.bgElev2);
+        el.style.setProperty("--text", bg.text);
+        el.style.setProperty("--muted", bg.muted);
+        el.style.setProperty("--line", bg.line);
+        el.style.setProperty("--line-soft", bg.lineSoft);
+      });
+
+      if (hero) hero.setAttribute("data-preview-theme", theme);
+      if (dialog) dialog.setAttribute("data-preview-theme", theme);
+      if (backdrop) {
+        const overlayBase = theme === "LIGHT" ? "rgba(8, 12, 20, 0.76)" : "rgba(3, 5, 12, 0.88)";
+        backdrop.style.setProperty("--welcome-overlay", overlayBase);
+        backdrop.style.setProperty("--welcome-overlay-accent", `color-mix(in oklab, ${accentA} 24%, transparent)`);
+      }
+    }
+
     function syncEnhancedSelects() {
       document.querySelectorAll("select[data-ux-enhanced='1']").forEach((select) => {
         if (typeof select.__uxSync === "function") select.__uxSync();
@@ -327,17 +519,32 @@
       const old = document.getElementById("selectDialog");
       if (old) old.remove();
 
-      const isAccentPicker = select.id === "accentSelect";
+      const isAccentPicker = select.id === "accentSelect" || select.id === "welcomeAccentSelect";
       const accentPreview = {
-        CHERRY: "linear-gradient(120deg, #d53a47, #f06a7a)",
-        LAVA: "linear-gradient(120deg, #ff6b2e, #ff9d2e)",
+        RUBY: "linear-gradient(120deg, #c4304d, #f15a78)",
+        FIRE_OPAL: "linear-gradient(120deg, #ff6b2e, #ff9d2e)",
         GOLD: "linear-gradient(120deg, #d6a83d, #f0cb73)",
         EMERALD: "linear-gradient(120deg, #2db873, #49d68d)",
-        SEA: "linear-gradient(120deg, #29bfb0, #63e5d8)",
+        DIAMOND: "linear-gradient(120deg, #29bfb0, #63e5d8)",
         SAPPHIRE: "linear-gradient(120deg, #2f74de, #58a1ff)",
         AMETHYST: "linear-gradient(120deg, #8f4dff, #c96eff)",
         QUARTZ: "linear-gradient(120deg, #d16eb3, #f38bcf)",
+        VOLCANO_ASH: "linear-gradient(120deg, #8f97a4, #bdc5d2)",
+        // Backward-compatible aliases for older ids.
+        CHERRY: "linear-gradient(120deg, #c4304d, #f15a78)",
+        LAVA: "linear-gradient(120deg, #ff6b2e, #ff9d2e)",
+        SEA: "linear-gradient(120deg, #29bfb0, #63e5d8)",
         ASH: "linear-gradient(120deg, #8f97a4, #bdc5d2)"
+      };
+
+      const normalizePreviewAccentKey = (value) => {
+        const raw = String(value || "")
+          .trim()
+          .toUpperCase()
+          .replace(/[\s-]+/g, "_");
+        if (raw === "FIREOPAL") return "FIRE_OPAL";
+        if (raw === "VOLCANOASH") return "VOLCANO_ASH";
+        return raw;
       };
 
       const options = Array.from(select.options).filter((opt) => !opt.disabled);
@@ -346,6 +553,20 @@
       const wrap = document.createElement("div");
       wrap.id = "selectDialog";
       wrap.className = "picker-backdrop";
+
+      // Picker is mounted at document.body level, so it won't inherit CSS vars from
+      // the originating dialog automatically. Copy current visual tokens explicitly.
+      const sourceScope =
+        select.closest("#welcomeBackdrop .welcome-dialog") ||
+        select.closest(".panel-body") ||
+        document.documentElement;
+      const scopeStyles = getComputedStyle(sourceScope);
+      const tokens = ["--accent", "--accent-2", "--accent-soft", "--bg", "--bg-ink", "--bg-elev", "--bg-elev-2", "--line", "--line-soft", "--text", "--muted"];
+      tokens.forEach((token) => {
+        const value = scopeStyles.getPropertyValue(token).trim();
+        if (value) wrap.style.setProperty(token, value);
+      });
+
       wrap.innerHTML = `
         <div class="picker-dialog" role="dialog" aria-modal="true" aria-label="Select value">
           <div class="picker-head">
@@ -392,7 +613,8 @@
       currentBox.textContent = select.options[select.selectedIndex] ? select.options[select.selectedIndex].textContent.trim() : "-";
       pendingBox.textContent = selectedLabel();
       if (isAccentPicker && previewBox) {
-        previewBox.style.background = accentPreview[pendingValue] || accentPreview.AMETHYST;
+        const previewKey = normalizePreviewAccentKey(pendingValue);
+        previewBox.style.background = accentPreview[previewKey] || accentPreview.AMETHYST;
       }
 
       const render = () => {
@@ -406,7 +628,8 @@
             pendingValue = opt.value;
             pendingBox.textContent = selectedLabel();
             if (isAccentPicker && previewBox) {
-              previewBox.style.background = accentPreview[pendingValue] || accentPreview.AMETHYST;
+              const previewKey = normalizePreviewAccentKey(pendingValue);
+              previewBox.style.background = accentPreview[previewKey] || accentPreview.AMETHYST;
             }
             render();
           });
@@ -488,78 +711,118 @@
       });
     }
 
-    function initHeroMatrix() {
-      const canvas = document.getElementById("heroMatrix");
-      if (!canvas) return;
-
+    function mountHeroParticles(canvas) {
+      if (typeof canvas === "string") canvas = document.getElementById(canvas);
+      if (!canvas) return () => {};
       const ctx = canvas.getContext("2d", { alpha: true });
-      if (!ctx) return;
+      if (!ctx) return () => {};
 
-      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      const chars = "01ABCDEFGHIJKLMNOPQRSTUVWXYZ#$%*+-<>";
-      let cols = 0;
-      let drops = [];
-      let raf = 0;
-      let dpr = 1;
-      let cell = 14;
+      const COUNT   = 36;
+      const LINK    = 120;
+      const SPEED   = 0.4;
 
-      const resize = () => {
-        const rect = canvas.getBoundingClientRect();
-        dpr = Math.min(2, window.devicePixelRatio || 1);
-        const w = Math.max(1, Math.floor(rect.width));
-        const h = Math.max(1, Math.floor(rect.height));
-        canvas.width = Math.floor(w * dpr);
-        canvas.height = Math.floor(h * dpr);
-        cols = Math.max(1, Math.floor(w / cell));
-        drops = Array.from({ length: cols }, () => Math.random() * (h / cell));
+      const nodes = Array.from({ length: COUNT }, () => ({
+        x:  Math.random(),
+        y:  Math.random(),
+        vx: (Math.random() - 0.5) * SPEED,
+        vy: (Math.random() - 0.5) * SPEED,
+        r:  1.5 + Math.random() * 1.4
+      }));
+
+      let w = 1, h = 1, dpr = 1, accent = "#8f4dff", raf = 0;
+      let ro = null;
+
+      const readAccent = () => {
+        const hero = canvas.closest(".ten-hero");
+        const source = hero || document.documentElement;
+        accent = getComputedStyle(source).getPropertyValue("--accent").trim() || "#8f4dff";
       };
 
-      const randChar = () => chars[(Math.random() * chars.length) | 0];
+      const resize = () => {
+        dpr = Math.min(2, window.devicePixelRatio || 1);
+        const rect = canvas.getBoundingClientRect();
+        w = Math.max(rect.width,  1);
+        h = Math.max(rect.height, 1);
+        canvas.width  = Math.round(w * dpr);
+        canvas.height = Math.round(h * dpr);
+        readAccent();
+      };
 
       const tick = () => {
-        const w = canvas.width / dpr;
-        const h = canvas.height / dpr;
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, w, h);
 
-        ctx.fillStyle = "rgba(0, 0, 0, 0.085)";
-        ctx.fillRect(0, 0, w, h);
-
-        const c1 = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#8f4dff";
-        const c2 = getComputedStyle(document.documentElement).getPropertyValue("--accent-2").trim() || "#c96eff";
-        ctx.font = "12px Cascadia Code, monospace";
-
-        for (let i = 0; i < cols; i++) {
-          const x = i * cell;
-          const y = drops[i] * cell;
-          ctx.fillStyle = (i % 3 === 0) ? c2 : c1;
-          ctx.globalAlpha = 0.75;
-          ctx.fillText(randChar(), x, y);
-          ctx.globalAlpha = 1;
-
-          if (y > h && Math.random() > 0.975) {
-            drops[i] = 0;
-          }
-          drops[i] += 0.55 + Math.random() * 0.65;
+        for (const n of nodes) {
+          n.x += n.vx / w;
+          n.y += n.vy / h;
+          if (n.x < 0 || n.x > 1) { n.vx *= -1; n.x = Math.max(0, Math.min(1, n.x)); }
+          if (n.y < 0 || n.y > 1) { n.vy *= -1; n.y = Math.max(0, Math.min(1, n.y)); }
         }
 
+        ctx.strokeStyle = accent;
+        ctx.lineWidth   = 1.2;
+        for (let i = 0; i < nodes.length; i++) {
+          const a = nodes[i];
+          for (let j = i + 1; j < nodes.length; j++) {
+            const b = nodes[j];
+            const dx = (a.x - b.x) * w;
+            const dy = (a.y - b.y) * h;
+            const d  = Math.sqrt(dx * dx + dy * dy);
+            if (d < LINK) {
+              ctx.globalAlpha = (1 - d / LINK) * 0.55;
+              ctx.beginPath();
+              ctx.moveTo(a.x * w, a.y * h);
+              ctx.lineTo(b.x * w, b.y * h);
+              ctx.stroke();
+            }
+          }
+        }
+
+        ctx.fillStyle = accent;
+        for (const n of nodes) {
+          ctx.globalAlpha = 1.0;
+          ctx.beginPath();
+          ctx.arc(n.x * w, n.y * h, n.r * 1.3, 0, Math.PI * 2);
+          ctx.fill();
+          
+          ctx.globalAlpha = 0.35;
+          ctx.beginPath();
+          ctx.arc(n.x * w, n.y * h, n.r * 2.8, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        ctx.globalAlpha = 1;
         raf = requestAnimationFrame(tick);
       };
 
       resize();
-
       if (typeof ResizeObserver === "function") {
-        const ro = new ResizeObserver(() => resize());
-        ro.observe(canvas);
+        ro = new ResizeObserver(() => resize());
+        ro.observe(canvas.parentElement || canvas);
       } else {
         window.addEventListener("resize", resize);
       }
+      raf = requestAnimationFrame(tick);
 
-      if (reduceMotion) {
-        tick();
+      const cleanup = () => {
         cancelAnimationFrame(raf);
-      } else {
-        raf = requestAnimationFrame(tick);
-      }
+        if (ro) ro.disconnect();
+        window.removeEventListener("resize", resize);
+      };
+      cleanup.updateAccent = () => {
+        readAccent();
+        tick();
+      };
+      return cleanup;
+    }
+
+    function mountHeroParticlesIn(container) {
+      if (!container) return;
+      container.querySelectorAll(".hero-particles").forEach((canvas) => {
+        if (canvas.dataset.heroMounted === "1") return;
+        canvas.dataset.heroMounted = "1";
+        mountHeroParticles(canvas);
+      });
     }
 
     function formatBytes(v) {
@@ -635,7 +898,9 @@
     }
 
     function currentOperator() {
-      const user = (state.settings && state.settings.operator) || "unknown";
+      const operatorInput = document.getElementById("operatorInput");
+      const typed = operatorInput ? operatorInput.value.trim() : "";
+      const user = typed || (state.settings && state.settings.operator) || "unknown";
       return String(user || "unknown");
     }
 
@@ -1506,10 +1771,16 @@
     window.__BYPASS_HOST_DISPATCH = onHostMessage;
 
     function collectPayload() {
+      const cleanupOptions = getCleanupOptions();
+      const requestedDryRun = document.getElementById("dryRun").checked;
+      const maxRetriesValue = state.maxRetries === "auto"
+        ? getMaxRetries()
+        : Number(state.maxRetries || getMaxRetries());
+
       return {
         target_path: document.getElementById("targetPath").value.trim(),
         out_dir: document.getElementById("outDirInput").value.trim() || "logs",
-        operator: document.getElementById("operatorInput").value.trim() || currentOperator(),
+        operator: currentOperator(),
         days_limit: Number(document.getElementById("daysInput").value || 0),
         min_size_mb: Number(document.getElementById("minSizeInput").value || 0),
         extensions: document.getElementById("extInput").value.trim(),
@@ -1517,17 +1788,23 @@
         delete_empty_dirs: document.getElementById("deleteEmpty").checked,
         skip_hidden: document.getElementById("skipHidden").checked,
         use_age_filter: document.getElementById("useAgeFilter").checked,
-        dry_run: document.getElementById("dryRun").checked,
+        dry_run: cleanupOptions.dryRun ? requestedDryRun : false,
         mode: "STANDARD",
         theme: state.themeMode,
         accent: state.accent,
-        language: document.getElementById("langSelect").value
+        language: document.getElementById("langSelect").value,
+        power_profile: state.powerProfile,
+        sandbox_profile: state.sandboxProfile,
+        max_retries: maxRetriesValue,
+        isolation_required: shouldIsolate(),
+        max_runtime: cleanupOptions.maxRuntime,
+        check_interval_ms: cleanupOptions.checkInterval,
+        welcome_completed: true
       };
     }
 
     function applySettingsToUi(s) {
       document.getElementById("outDirInput").value = s.out_dir || "logs";
-      document.getElementById("operatorInput").value = s.operator || "";
       document.getElementById("daysInput").value = String(s.days_limit ?? 14);
       document.getElementById("minSizeInput").value = String(s.min_size_mb ?? 0);
       document.getElementById("extInput").value = s.extensions || "";
@@ -1542,9 +1819,16 @@
       document.getElementById("themeModeSelect").value = mode;
       document.getElementById("accentSelect").value = accent;
       document.getElementById("langSelect").value = s.language || "auto";
+      document.getElementById("powerProfileSelect").value = s.power_profile || "BASIC";
+      document.getElementById("sandboxProfileSelect").value = s.sandbox_profile || "limited";
+      document.getElementById("maxRetriesSelect").value = String(s.max_retries || "auto");
+      document.getElementById("operatorInput").value = s.operator || currentOperator();
 
       applyThemeMode(mode);
       applyAccent(accent);
+      applyPowerProfile(s.power_profile || "BASIC");
+      applySandboxProfile(s.sandbox_profile || "limited");
+      state.maxRetries = String(s.max_retries || "auto");
       state.lang = detectLanguage(s.language || "auto");
       state.settings = s;
       applyTexts();
@@ -1554,6 +1838,11 @@
     async function loadSettings() {
       const s = await post("load_settings", {});
       applySettingsToUi(s);
+      const localSettings = JSON.parse(localStorage.getItem("bp_settings") || "{}");
+      localStorage.setItem("bp_settings", JSON.stringify({
+        ...localSettings,
+        welcome_completed: !!s.welcome_completed
+      }));
       addLog("[ui] settings loaded");
     }
 
@@ -1647,6 +1936,7 @@
       const target = document.getElementById("view-" + view);
       if (target) {
         target.classList.remove("hidden");
+        mountHeroParticlesIn(target);
         target.classList.remove("view-enter");
         requestAnimationFrame(() => target.classList.add("view-enter"));
       }
@@ -1699,8 +1989,6 @@
 
       document.getElementById("btnRun").addEventListener("click", () => runCleanup().catch(e => addLog("[error] " + e.message)));
       document.getElementById("btnStop").addEventListener("click", () => stopCleanup().catch(e => addLog("[error] " + e.message)));
-      document.getElementById("btnLoadSettings").addEventListener("click", () => loadSettings().catch(e => addLog("[error] " + e.message)));
-      document.getElementById("btnSaveSettings").addEventListener("click", () => saveSettings().catch(e => addLog("[error] " + e.message)));
       document.getElementById("btnOpenReportsDir").addEventListener("click", () => post("open_path", { path: document.getElementById("outDirInput").value || "logs" }).catch(e => addLog("[error] " + e.message)));
       document.getElementById("btnListReports").addEventListener("click", () => listReports().catch(e => addLog("[error] " + e.message)));
       document.getElementById("btnRefreshProcesses").addEventListener("click", () => refreshProcesses().catch(e => addLog("[error] " + e.message)));
@@ -1733,9 +2021,22 @@
         syncEnhancedSelects();
         persistSettings();
       });
+      document.getElementById("powerProfileSelect").addEventListener("change", (e) => {
+        applyPowerProfile(e.target.value);
+        persistSettings();
+      });
+      document.getElementById("sandboxProfileSelect").addEventListener("change", (e) => {
+        applySandboxProfile(e.target.value);
+        persistSettings();
+      });
+      document.getElementById("maxRetriesSelect").addEventListener("change", (e) => {
+        state.maxRetries = String(e.target.value || "auto");
+        persistSettings();
+      });
       document.getElementById("operatorInput").addEventListener("change", () => {
         persistSettings();
       });
+      document.getElementById("btnSaveSettings").addEventListener("click", () => saveSettings().catch(e => addLog("[error] " + e.message)));
 
       systemThemeMedia.addEventListener("change", () => {
         if (state.themeMode === "AUTO") applyThemeMode("AUTO");
@@ -1764,26 +2065,57 @@
       });
     }
 
+    function initNumSpinners() {
+      document.querySelectorAll(".num-shell").forEach((shell) => {
+        const input = shell.querySelector("input[type='number']");
+        const upBtn = shell.querySelector(".num-up");
+        const dnBtn = shell.querySelector(".num-dn");
+        if (!input || !upBtn || !dnBtn) return;
+        const step = Number(input.step) || 1;
+        const min = input.min !== "" ? Number(input.min) : -Infinity;
+        const max = input.max !== "" ? Number(input.max) : Infinity;
+        upBtn.addEventListener("click", () => {
+          input.value = Math.min(Number(input.value || 0) + step, max);
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+          input.dispatchEvent(new Event("change", { bubbles: true }));
+        });
+        dnBtn.addEventListener("click", () => {
+          input.value = Math.max(Number(input.value || 0) - step, min);
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+          input.dispatchEvent(new Event("change", { bubbles: true }));
+        });
+      });
+    }
+
     function bootstrap() {
-      enhanceSelects();
-      initHeroMatrix();
-      bind();
-      renderMiniSnapshot(null);
-      renderReportPreviewEmpty();
-      renderMatchesTable();
-      renderProcessSummary([]);
-      renderAuditLog();
-      renderQuarantineTable();
-      state.lang = detectLanguage("auto");
-      applyTexts();
-      switchView("home");
-      document.getElementById("appRoot").classList.add("ready");
-      const splash = document.getElementById("splash");
-      if (splash) {
-        setTimeout(() => {
-          splash.classList.add("hide");
-          setTimeout(() => splash.remove(), 430);
-        }, 220);
+      try {
+        enhanceSelects();
+        initNumSpinners();
+        mountHeroParticlesIn(document.getElementById("view-home"));
+        bind();
+        renderMiniSnapshot(null);
+        renderReportPreviewEmpty();
+        renderMatchesTable();
+        renderProcessSummary([]);
+        renderAuditLog();
+        renderQuarantineTable();
+        state.lang = detectLanguage("auto");
+        applyTexts();
+        switchView("home");
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error("bootstrap failed", err);
+        addLog("[error] bootstrap failed: " + message);
+      } finally {
+        const appRoot = document.getElementById("appRoot");
+        if (appRoot) appRoot.classList.add("ready");
+        const splash = document.getElementById("splash");
+        if (splash) {
+          setTimeout(() => {
+            splash.classList.add("hide");
+            setTimeout(() => splash.remove(), 430);
+          }, 220);
+        }
       }
 
       if (tauriCore && typeof tauriCore.invoke === "function" && tauriEvent && typeof tauriEvent.listen === "function") {
@@ -1804,25 +2136,462 @@
         return;
       }
 
-      if (!window.qt || !window.qt.webChannelTransport || typeof QWebChannel !== "function") {
-        document.getElementById("liveLog").textContent = "Host bridge is unavailable";
-        return;
+      document.getElementById("liveLog").textContent = "Host bridge is unavailable - Tauri API not initialized";
+    }
+
+    function initWelcomeDraft() {
+      const outDir = document.getElementById("outDirInput")?.value || "logs";
+      state.welcomeDraft = {
+        language: state.lang || "en",
+        languageRaw: state.lang || "en",
+        theme: state.themeMode || "AUTO",
+        accent: state.accent || "AMETHYST",
+        out_dir: outDir
+      };
+    }
+
+    function mountWelcomePreviewCanvas() {
+      if (typeof state.welcomePreviewUnmount === "function") {
+        state.welcomePreviewUnmount();
+      }
+      state.welcomePreviewUnmount = mountHeroParticles("welcomePreviewCanvas");
+    }
+
+    function applyWelcomeDraftPreview() {
+      if (!state.welcomeDraft) return;
+      const { languageRaw, theme, accent, out_dir } = state.welcomeDraft;
+      const langTag = document.getElementById("welcomePreviewLang");
+      const themeTag = document.getElementById("welcomePreviewTheme");
+      const accentTag = document.getElementById("welcomePreviewAccent");
+      const reportTag = document.getElementById("welcomePreviewReports");
+      const statLang = document.getElementById("welcomeStatLang");
+      const statTheme = document.getElementById("welcomeStatTheme");
+      const statAccent = document.getElementById("welcomeStatAccent");
+      const statOut = document.getElementById("welcomeStatOut");
+
+      const uiLang = detectLanguage(languageRaw || "auto");
+      const langLabel = formatWelcomeLanguageLabel(languageRaw, uiLang);
+      const themeLabel = formatWelcomeThemeLabel(theme, uiLang);
+      const accentLabel = formatWelcomeAccentLabel(accent);
+      const previewLabels = uiLang === "ru"
+        ? { lang: "Язык", theme: "Оформление", accent: "Акцент", reports: "Отчеты" }
+        : { lang: "Language", theme: "Appearance", accent: "Accent", reports: "Reports" };
+
+      if (langTag) langTag.textContent = `${previewLabels.lang}: ${langLabel}`;
+      if (themeTag) themeTag.textContent = `${previewLabels.theme}: ${themeLabel}`;
+      if (accentTag) accentTag.textContent = `${previewLabels.accent}: ${accentLabel}`;
+      if (reportTag) reportTag.textContent = `${previewLabels.reports}: ${out_dir || "logs"}`;
+
+      if (statLang) statLang.textContent = rawLabelShort(langLabel);
+      if (statTheme) statTheme.textContent = rawLabelShort(themeLabel);
+      if (statAccent) statAccent.textContent = rawLabelShort(accentLabel);
+      if (statOut) statOut.textContent = String(out_dir || "logs").toUpperCase();
+
+      applyWelcomePreviewAppearance();
+      
+      if (typeof state.welcomePreviewUnmount === "function" && state.welcomePreviewUnmount.updateAccent) {
+        state.welcomePreviewUnmount.updateAccent();
+      }
+    }
+
+    function rawLabelShort(value) {
+      return String(value || "")
+        .replace(/\s*\(.+?\)/g, "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .toUpperCase();
+    }
+
+    function renderWelcomeDialog() {
+      if (!state.welcomeDraft) initWelcomeDraft();
+      const body = document.getElementById("welcomeDialogBody");
+      if (!body) return;
+      const draft = state.welcomeDraft;
+      const languageRaw = draft.languageRaw || "auto";
+      const uiLang = draft.language || detectLanguage(languageRaw);
+      const welcomeText = uiLang === "ru"
+        ? {
+            kicker: "Welcome Setup",
+            title: "Добро пожаловать",
+            sub: "Это первый запуск. Настройте рабочее пространство под себя.",
+            cardTitle: "Initial Preferences",
+            cardSub: "Задайте язык, тему, акцент и папку отчетов для этого компьютера.",
+            lblLang: "Язык",
+            lblTheme: "Тема",
+            lblAccent: "Акцент",
+            lblReports: "Папка отчетов",
+            note: "Если поле папки оставить пустым, будет использована стандартная папка logs.",
+            previewKicker: "Живое превью",
+            previewTitleLead: "EXE",
+            previewTitleAccent: "Analysis Console",
+            previewSub: "Параметры справа обновляются сразу, как в EXE Analyser.",
+            chipLang: "Язык",
+            chipTheme: "Оформление",
+            chipReports: "Отчеты",
+            foot: "Параметры сохраняются локально и доступны для изменения в Настройках.",
+            start: "Оставить как есть",
+            apply: "Применить"
+          }
+        : {
+            kicker: "Welcome Setup",
+            title: "Welcome aboard",
+            sub: "This is the first launch. Tune the workspace once so it opens exactly how you like.",
+            cardTitle: "Initial Preferences",
+            cardSub: "Set language, theme, accent and reports folder for this machine.",
+            lblLang: "Language",
+            lblTheme: "Theme",
+            lblAccent: "Accent",
+            lblReports: "Reports folder",
+            note: "If reports folder is empty, the default logs folder will be used.",
+            previewKicker: "Live Preview",
+            previewTitleLead: "EXE",
+            previewTitleAccent: "Analysis Console",
+            previewSub: "Settings on the right update immediately, similar to EXE Analyser first-run.",
+            chipLang: "Language",
+            chipTheme: "Appearance",
+            chipReports: "Reports",
+            foot: "Preferences are saved locally and can be changed any time in Settings.",
+            start: "Keep as is",
+            apply: "Apply setup"
+          };
+      body.innerHTML = `
+        <div class="about-hero">
+          <div class="welcome-kicker"><span class="welcome-kicker-dot"></span>${welcomeText.kicker}</div>
+          <h2 class="welcome-title" id="welcomeDialogTitle">${welcomeText.title}</h2>
+          <p class="welcome-sub">${welcomeText.sub}</p>
+        </div>
+        <div class="welcome-body">
+          <div class="welcome-grid">
+            <section class="welcome-card welcome-stack">
+              <div>
+                <div class="about-card-title">${welcomeText.cardTitle}</div>
+                <div class="about-card-sub">${welcomeText.cardSub}</div>
+              </div>
+              <div class="field">
+                <label for="welcomeLangSelect">${welcomeText.lblLang}</label>
+                <select id="welcomeLangSelect">
+                  <option value="auto" ${languageRaw === "auto" ? "selected" : ""}>${uiLang === "ru" ? "Авто (System)" : "Auto (System)"}</option>
+                  <option value="en" ${languageRaw === "en" ? "selected" : ""}>${uiLang === "ru" ? "Английский" : "English"}</option>
+                  <option value="ru" ${languageRaw === "ru" ? "selected" : ""}>${uiLang === "ru" ? "Русский" : "Russian"}</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="welcomeThemeSelect">${welcomeText.lblTheme}</label>
+                <select id="welcomeThemeSelect">
+                  ${THEME_MODE_OPTIONS.map((o) => `<option value="${o}" ${draft.theme === o ? "selected" : ""}>${o === "AUTO" ? (uiLang === "ru" ? "Системная (Авто)" : "System (Auto)") : o === "DARK" ? (uiLang === "ru" ? "Темная" : "Dark") : (uiLang === "ru" ? "Светлая" : "Light")}</option>`).join("")}
+                </select>
+              </div>
+              <div class="field">
+                <label for="welcomeAccentSelect">${welcomeText.lblAccent}</label>
+                <select id="welcomeAccentSelect">
+                  ${ACCENT_OPTIONS.map((o) => `<option value="${o}" ${draft.accent === o ? "selected" : ""}>${formatWelcomeAccentLabel(o)}</option>`).join("")}
+                </select>
+              </div>
+              <div class="field">
+                <label for="welcomeReportsDirInput">${welcomeText.lblReports}</label>
+                <input id="welcomeReportsDirInput" type="text" value="${String(draft.out_dir || "logs").replace(/"/g, "&quot;")}" placeholder="logs (or custom path)" />
+              </div>
+              <div class="welcome-note">${welcomeText.note}</div>
+            </section>
+            <section class="welcome-card welcome-preview">
+              <div id="welcomePreviewHero" class="ten-hero welcome-preview-hero">
+                <canvas id="welcomePreviewCanvas" class="hero-particles welcome-preview-canvas"></canvas>
+                <div class="hero-content welcome-preview-content">
+                  <div class="welcome-preview-copy">
+                    <div class="hero-label">${welcomeText.previewKicker}</div>
+                    <h3 class="hero-title">${welcomeText.previewTitleLead} <span class="hero-title-accent">${welcomeText.previewTitleAccent}</span></h3>
+                    <p class="hero-sub">${welcomeText.previewSub}</p>
+                    <div class="hero-tags">
+                      <span id="welcomePreviewLang" class="hero-tag"></span>
+                      <span id="welcomePreviewTheme" class="hero-tag"></span>
+                      <span id="welcomePreviewAccent" class="hero-tag"></span>
+                      <span id="welcomePreviewReports" class="hero-tag"></span>
+                    </div>
+                  </div>
+                  <div class="hero-stats welcome-preview-stats">
+                    <div class="hero-stat"><div id="welcomeStatLang" class="hero-stat-k"></div><div class="hero-stat-l">${welcomeText.chipLang}</div></div>
+                    <div class="hero-stat"><div id="welcomeStatTheme" class="hero-stat-k"></div><div class="hero-stat-l">${welcomeText.chipTheme}</div></div>
+                    <div class="hero-stat"><div id="welcomeStatAccent" class="hero-stat-k"></div><div class="hero-stat-l">${welcomeText.lblAccent}</div></div>
+                    <div class="hero-stat"><div id="welcomeStatOut" class="hero-stat-k"></div><div class="hero-stat-l">${welcomeText.chipReports}</div></div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+        <div class="welcome-actions">
+          <div class="welcome-footnote">${welcomeText.foot}</div>
+          <div class="about-action-row">
+            <button id="btnWelcomeSkip" class="btn" type="button">${welcomeText.start}</button>
+            <button id="btnWelcomeApply" class="btn primary" type="button">${welcomeText.apply}</button>
+          </div>
+        </div>
+      `;
+
+      applyWelcomeDraftPreview();
+      enhanceSelects(body);
+      syncEnhancedSelects();
+      mountWelcomePreviewCanvas();
+    }
+
+    function openWelcomeDialog() {
+      if (!state.welcomeDraft) initWelcomeDraft();
+      renderWelcomeDialog();
+      state.welcomeOpen = true;
+      const backdrop = document.getElementById("welcomeBackdrop");
+      if (backdrop) {
+        backdrop.classList.remove("hidden");
+        backdrop.setAttribute("aria-hidden", "false");
+      }
+    }
+
+    function closeWelcomeDialog() {
+      state.welcomeOpen = false;
+      if (typeof state.welcomePreviewUnmount === "function") {
+        state.welcomePreviewUnmount();
+        state.welcomePreviewUnmount = null;
+      }
+      const dialog = document.getElementById("selectDialog");
+      if (dialog) dialog.remove();
+      const backdrop = document.getElementById("welcomeBackdrop");
+      if (backdrop) {
+        backdrop.classList.add("hidden");
+        backdrop.setAttribute("aria-hidden", "true");
+      }
+    }
+
+    function skipWelcomeSetup() {
+      const currentLang = document.getElementById("langSelect")?.value || "auto";
+      const currentTheme = document.getElementById("themeModeSelect")?.value || "AUTO";
+      const currentAccent = document.getElementById("accentSelect")?.value || "AMETHYST";
+      const currentOutDir = document.getElementById("outDirInput")?.value || "logs";
+
+      const settings = {
+        language: currentLang,
+        theme: currentTheme,
+        accent: currentAccent,
+        out_dir: currentOutDir,
+        welcome_completed: true
+      };
+
+      localStorage.setItem("bp_settings", JSON.stringify(settings));
+      persistSettings();
+      closeWelcomeDialog();
+    }
+
+    function finishWelcomeSetup() {
+      const lang = state.welcomeDraft?.languageRaw || document.getElementById("welcomeLangSelect")?.value || "auto";
+      const theme = state.welcomeDraft?.theme || document.getElementById("welcomeThemeSelect")?.value || "AUTO";
+      const accent = state.welcomeDraft?.accent || document.getElementById("welcomeAccentSelect")?.value || "AMETHYST";
+      const outDir = state.welcomeDraft?.out_dir || document.getElementById("welcomeReportsDirInput")?.value || "logs";
+
+      state.lang = detectLanguage(lang);
+      state.themeMode = theme;
+      state.accent = accent;
+
+      applyThemeMode(theme);
+      applyAccent(accent);
+      applyTexts();
+
+      document.getElementById("outDirInput").value = outDir;
+      document.getElementById("langSelect").value = lang;
+      document.getElementById("themeModeSelect").value = theme;
+      document.getElementById("accentSelect").value = accent;
+      syncEnhancedSelects();
+
+      const settings = {
+        language: lang,
+        theme: theme,
+        accent: accent,
+        out_dir: outDir,
+        welcome_completed: true
+      };
+
+      localStorage.setItem("bp_settings", JSON.stringify(settings));
+      persistSettings();
+      closeWelcomeDialog();
+    }
+
+    function showQuickInfoDialog(title, content) {
+      const backdrop = document.getElementById("quickInfoBackdrop");
+      const titleEl = document.getElementById("quickInfoTitle");
+      const contentEl = document.getElementById("quickInfoContent");
+      
+      if (titleEl) titleEl.textContent = title;
+      if (contentEl) contentEl.innerHTML = content;
+      
+      if (backdrop) {
+        backdrop.style.display = "grid";
+        setTimeout(() => backdrop.classList.add("active"), 10);
+      }
+    }
+
+    function closeQuickInfoDialog() {
+      const backdrop = document.getElementById("quickInfoBackdrop");
+      if (backdrop) {
+        backdrop.classList.remove("active");
+        setTimeout(() => { backdrop.style.display = "none"; }, 260);
+      }
+    }
+
+    function applyPowerProfile(profile) {
+      state.powerProfile = profile;
+      const dryRunInput = document.getElementById("dryRun");
+      const retriesSelect = document.getElementById("maxRetriesSelect");
+      if (profile === "PENTEST") {
+        document.documentElement.classList.add("pentest-theme");
+        if (dryRunInput) {
+          dryRunInput.checked = false;
+          dryRunInput.disabled = true;
+        }
+      } else {
+        document.documentElement.classList.remove("pentest-theme");
+        if (dryRunInput) {
+          dryRunInput.disabled = false;
+        }
+      }
+      if (retriesSelect && state.maxRetries === "auto") {
+        retriesSelect.value = "auto";
+      }
+    }
+
+    function applySandboxProfile(profile) {
+      state.sandboxProfile = profile;
+    }
+
+    function getCleanupOptions() {
+      const options = {
+        profile: state.powerProfile,
+        sandbox: state.sandboxProfile,
+        dryRun: state.powerProfile !== "PENTEST"
+      };
+      
+      if (state.powerProfile === "BASIC") {
+        options.maxRuntime = 60;
+        options.checkInterval = 500;
+      } else if (state.powerProfile === "AUDIT") {
+        options.maxRuntime = 180;
+        options.checkInterval = 300;
+      } else if (state.powerProfile === "PENTEST") {
+        options.maxRuntime = 300;
+        options.checkInterval = 100;
+        options.dryRun = false;
+      }
+      
+      return options;
+    }
+
+    function shouldIsolate() {
+      return state.sandboxProfile === "isolated" || state.powerProfile === "PENTEST";
+    }
+
+    function getMaxRetries() {
+      switch(state.powerProfile) {
+        case "BASIC": return 1;
+        case "AUDIT": return 3;
+        case "PENTEST": return 5;
+        default: return 1;
+      }
+    }
+
+    function setupWelcomeDialogBindings() {
+      const welcomeBody = document.getElementById("welcomeDialogBody");
+      if (welcomeBody) {
+        welcomeBody.addEventListener("click", (e) => {
+          const target = e.target;
+          if (!(target instanceof HTMLElement)) return;
+          const button = target.closest("button");
+          if (!button) return;
+          if (button.id === "btnWelcomeSkip") skipWelcomeSetup();
+          if (button.id === "btnWelcomeApply") finishWelcomeSetup();
+        });
+
+        welcomeBody.addEventListener("input", (e) => {
+          const target = e.target;
+          if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement)) return;
+          if (!state.welcomeDraft) initWelcomeDraft();
+          if (target.id === "welcomeLangSelect") {
+            state.welcomeDraft.languageRaw = target.value || "auto";
+            state.welcomeDraft.language = detectLanguage(state.welcomeDraft.languageRaw);
+            renderWelcomeDialog();
+            return;
+          }
+          if (target.id === "welcomeThemeSelect") state.welcomeDraft.theme = target.value || "AUTO";
+          if (target.id === "welcomeAccentSelect") state.welcomeDraft.accent = target.value || "AMETHYST";
+          if (target.id === "welcomeReportsDirInput") state.welcomeDraft.out_dir = target.value || "logs";
+          applyWelcomeDraftPreview();
+        });
+
+        welcomeBody.addEventListener("change", (e) => {
+          const target = e.target;
+          if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement)) return;
+          if (!state.welcomeDraft) initWelcomeDraft();
+          if (target.id === "welcomeLangSelect") {
+            state.welcomeDraft.languageRaw = target.value || "auto";
+            state.welcomeDraft.language = detectLanguage(state.welcomeDraft.languageRaw);
+            renderWelcomeDialog();
+            return;
+          }
+          if (target.id === "welcomeThemeSelect") state.welcomeDraft.theme = target.value || "AUTO";
+          if (target.id === "welcomeAccentSelect") state.welcomeDraft.accent = target.value || "AMETHYST";
+          if (target.id === "welcomeReportsDirInput") state.welcomeDraft.out_dir = target.value || "logs";
+          applyWelcomeDraftPreview();
+        });
       }
 
-      state.hostMode = "qt";
-      new QWebChannel(window.qt.webChannelTransport, (channel) => {
-        state.ipc = channel.objects.ipc || null;
-        if (!state.ipc) {
-          document.getElementById("liveLog").textContent = "Host bridge is unavailable";
-          return;
-        }
+      document.getElementById("btnQuickInfoClose").addEventListener("click", () => closeQuickInfoDialog());
+      document.getElementById("btnQuickInfoOk").addEventListener("click", () => closeQuickInfoDialog());
 
-        loadPlatformCapabilities()
-          .then(() => refreshSecurityViews())
-          .catch(e => addLog("[error] " + e.message));
-        loadSettings().catch(e => addLog("[error] " + e.message));
-        listReports().catch(e => addLog("[error] " + e.message));
+      document.getElementById("btnInfo").addEventListener("click", () => openInfoDeck());
+      document.getElementById("btnInfoDeckClose").addEventListener("click", () => closeInfoDeck());
+      document.getElementById("btnInfoDeckOk").addEventListener("click", () => closeInfoDeck());
+      document.getElementById("infoDeckBackdrop").addEventListener("click", (e) => {
+        if (e.target.id === "infoDeckBackdrop") closeInfoDeck();
+      });
+      
+      document.getElementById("welcomeBackdrop").addEventListener("click", (e) => {
+        if (e.target.id === "welcomeBackdrop") closeWelcomeDialog();
+      });
+      
+      document.getElementById("quickInfoBackdrop").addEventListener("click", (e) => {
+        if (e.target.id === "quickInfoBackdrop") closeQuickInfoDialog();
+      });
+
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          if (state.welcomeOpen) skipWelcomeSetup();
+          const infoDeck = document.getElementById("infoDeckBackdrop");
+          if (infoDeck && infoDeck.style.display === "grid") closeInfoDeck();
+          const quickInfo = document.getElementById("quickInfoBackdrop");
+          if (quickInfo && quickInfo.style.display === "grid") closeQuickInfoDialog();
+        }
       });
     }
 
+    function openInfoDeck() {
+      const backdrop = document.getElementById("infoDeckBackdrop");
+      if (backdrop) {
+        backdrop.style.display = "grid";
+        setTimeout(() => backdrop.classList.add("active"), 10);
+      }
+    }
+
+    function closeInfoDeck() {
+      const backdrop = document.getElementById("infoDeckBackdrop");
+      if (backdrop) {
+        backdrop.classList.remove("active");
+        setTimeout(() => { backdrop.style.display = "none"; }, 220);
+      }
+    }
+
+    setupWelcomeDialogBindings();
+
+    function checkFirstRun() {
+      const settings = JSON.parse(localStorage.getItem("bp_settings") || "{}");
+      if (!settings.welcome_completed) {
+        openWelcomeDialog();
+      }
+    }
+
     bootstrap();
+    checkFirstRun();

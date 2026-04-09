@@ -1,6 +1,6 @@
 [package]
 name = "bypass-cleaner"
-version = "1.0.0"
+version = "0.3.0"
 description = "Smart file cleanup utility with live dashboard"
 authors = ["ByPass"]
 license = "Private"
