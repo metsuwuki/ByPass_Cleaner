@@ -4,130 +4,131 @@ ByPass Cleaner is a Windows desktop utility for preview-first cleanup, quarantin
 
 The project is built with Rust + Tauri and targets Windows 10/11.
 
-## Что уже реализовано
+## Implemented
 
-- Preview / `dry-run` перед удалением.
-- Очистка по фильтрам:
-  - возраст файла в днях
-  - минимальный размер
-  - список расширений (`tmp`, `log` и т.д.)
-- Сканирование с подпапками или без.
-- Опциональное удаление пустых папок.
-- Опциональный пропуск скрытых файлов и папок.
-- Живой прогресс, статистика, журнал выполнения и итоговый JSON-отчёт.
-- Карантин:
-  - перенос файла в изолированную папку
-  - SHA-256
-  - manifest с метаданными
-  - восстановление обратно
-- Просмотр процессов:
-  - компактный список
-  - путь, командная строка, память, CPU, родительский PID
-  - SHA-256 исполняемого файла
-  - простая эвристическая оценка риска
-- Эвристические метки для процессов:
+- Preview-first cleanup via `dry-run` before actual deletion.
+- Cleanup filters:
+  - file age in days
+  - minimum file size
+  - extension allow-list such as `tmp`, `log`, `bak`
+  - file name contains terms such as `cache`, `temp`, `dump`
+  - exclude path tokens such as `Windows`, `Program Files`, `.quarantine`
+- Recursive scan with optional subfolder traversal.
+- Optional deletion of empty directories.
+- Optional skip for hidden files and directories.
+- Live progress updates, dashboard counters, runtime log stream, and JSON cleanup reports.
+- Quarantine flow:
+  - move file into isolated `.quarantine/files/`
+  - SHA-256 calculation
+  - manifest in `.quarantine/manifests/`
+  - restore back to original path
+- Process triage:
+  - compact process list with risk ordering
+  - path, command line, memory, CPU, start time
+  - detailed process card with parent PID, SHA-256, and signature status
+  - heuristic threat scoring
+- Heuristic process families:
   - `miner`
   - `rat`
   - `trojan`
   - `suspicious`
-- Агрессивное удаление:
-  - обычная попытка удаления
-  - сброс атрибутов файла
-  - переименование во временный путь с повторной попыткой
-  - постановка на удаление после перезагрузки, если файл заблокирован
-- Audit log для чувствительных действий.
+- Aggressive delete flow for files:
+  - standard delete attempt
+  - attribute reset
+  - staged rename into a pending-delete path
+  - schedule delete on reboot if the file stays locked
+- Process neutralize flow:
+  - force-stop suspicious process tree
+  - attempt quarantine of the executable
+  - fallback to aggressive delete when quarantine cannot complete
+- Audit log for sensitive actions such as quarantine, restore, reboot-delete, and aggressive delete.
 
-## Важное ограничение
+## Important Limitations
 
-ByPass Cleaner не является полноценным антивирусом и не даёт гарантированного определения вредоносного ПО. Метки `miner` / `rat` / `trojan` / `suspicious` основаны на локальных эвристиках и нужны для триажа, а не для финального вердикта.
+ByPass Cleaner is not a full antivirus product and does not provide guaranteed malware detection.
 
-Агрессивное удаление тоже не является "магическим bypass". Оно помогает с обычными блокировками и неудобными файлами, но не должно рассматриваться как обход системной защиты, драйверов, EDR или защищённых системных объектов.
+The labels `miner`, `rat`, `trojan`, and `suspicious` are local heuristics for triage and investigation. They are not final malware verdicts.
 
-## Основной сценарий работы
+Aggressive delete is also not a magical bypass. It helps with common file-lock and attribute-related cases, but it should not be treated as a way to bypass system protections, drivers, EDR, or protected OS objects.
 
-1. Выбрать папку для анализа.
-2. Настроить фильтры.
-3. Запустить `dry-run`.
-4. Проверить список совпадений, статистику и отчёт.
-5. Запустить реальную очистку только после проверки.
-6. При необходимости использовать карантин, просмотр процессов или агрессивное удаление.
+## Typical Workflow
 
-## Сборка
+1. Select a target folder.
+2. Configure cleanup filters.
+3. Run `dry-run`.
+4. Review matches, counters, and the generated report.
+5. Run real cleanup only after verification.
+6. If needed, use quarantine, process review, or aggressive delete.
 
-Требования:
+## Build
+
+Requirements:
 
 - Windows 10/11 x64
 - Rust toolchain
 - WebView2 Runtime
-- Inno Setup 6 для сборки установщика
+- Inno Setup 6 for installer builds
 
-Запуск в dev-режиме:
+Run in dev mode:
 
 ```powershell
 cd .\src-tauri
 cargo tauri dev
 ```
 
-Если `cargo tauri` не установлен:
+If `cargo tauri` is not installed:
 
 ```powershell
 cargo install tauri-cli --version "^2"
 ```
 
-Сборка `.exe`:
+Build the app executable:
 
 ```powershell
 cd .\src-tauri
 cargo build --release
 ```
 
-Готовый исполняемый файл:
+Resulting binary:
 
 ```text
 src-tauri/target/release/bypass-cleaner.exe
 ```
 
-## Сборка Setup
+## Build Setup
 
-После сборки release `.exe`:
+After building the release executable:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\Installer\build_setup.ps1 -AppVersion 1.0.0
+powershell -ExecutionPolicy Bypass -File .\Installer\build_setup.ps1 -AppVersion 0.3.0
 ```
 
-Скрипт:
-
-- проверяет наличие `bypass-cleaner.exe`
-- подготавливает branding assets для Inno Setup
-- находит `ISCC.exe`
-- собирает установщик
-
-Готовый установщик:
+Resulting installer:
 
 ```text
 Installer/Output/ByPass Cleaner Setup.exe
 ```
 
-## Runtime-артефакты
+## Runtime Artifacts
 
-Во время работы приложение создаёт:
+During normal work the application creates:
 
-- `qt_settings.json` - сохранённые настройки
-- `logs/cleanup_report_*.json` - отчёты очистки
-- `.quarantine/files/` - изолированные файлы
-- `.quarantine/manifests/` - метаданные карантина
-- `audit-log.jsonl` - журнал чувствительных действий
+- `qt_settings.json` - saved UI and cleanup settings
+- `logs/cleanup_report_*.json` - cleanup reports
+- `.quarantine/files/` - quarantined files
+- `.quarantine/manifests/` - quarantine metadata
+- `audit-log.jsonl` - audit log for sensitive actions
 
-## Структура репозитория
+## Repository Layout
 
-Исходники:
+Source folders:
 
 - `src-tauri/` - Rust backend, Tauri host, tests, config
-- `webui/` - HTML/CSS/JS интерфейс
-- `Installer/` - Inno Setup script и build-обвязка
-- `Utils/` - иконки и вспомогательные ресурсы
+- `webui/` - HTML/CSS/JS interface
+- `Installer/` - Inno Setup script and packaging helpers
+- `Utils/` - icons and supporting assets
 
-Генерируемые / выходные каталоги:
+Generated/output folders:
 
 - `src-tauri/target/`
 - `src-tauri/gen/`
@@ -136,7 +137,7 @@ Installer/Output/ByPass Cleaner Setup.exe
 - `EXE - app/`
 - `Setup/`
 
-## Технологии
+## Tech Stack
 
 - Rust
 - Tauri 2
@@ -146,16 +147,23 @@ Installer/Output/ByPass Cleaner Setup.exe
 - serde / serde_json
 - Inno Setup 6
 
-## Статус проекта
+## Current Status
 
-Сейчас проект уже покрывает основную функциональность из описания: очистка, отчёты, карантин, просмотр процессов, triage-эвристики и агрессивное удаление с fallback на reboot delete.
+The project already covers its core desktop workflow:
 
-Что ещё стоит считать зоной для дальнейшей доработки, а не "готовым антивирусным движком":
+- filtered cleanup
+- report generation
+- quarantine
+- process triage
+- audit logging
+- aggressive delete with reboot fallback
 
-- более сильная malware-классификация
-- облачная/сигнатурная проверка
+Areas that should still be treated as future hardening work rather than "finished antivirus engine" scope:
+
+- stronger malware classification
+- cloud/signature reputation
 - richer process reputation
-- расширенная работа с защищёнными системными объектами
+- deeper handling of protected system objects
 
 ## License
 
