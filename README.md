@@ -100,7 +100,7 @@ src-tauri/target/release/bypass-cleaner.exe
 After building the release executable:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\Installer\build_setup.ps1 -AppVersion 0.3.0
+powershell -ExecutionPolicy Bypass -File .\Installer\build_setup.ps1 -AppVersion 0.4.0
 ```
 
 Resulting installer:
